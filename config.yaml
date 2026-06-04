@@ -1,0 +1,87 @@
+# AI Archiver 配置
+# 你随时可以改这里：换模型、加操作、改目标文件路径。
+
+knowledge_base:
+  # 知识库根目录（所有 target 都是相对这里的相对路径）
+  root: ~/knowledge
+
+# ===== 模型提供商 =====
+# 通过环境变量 ARCHIVER_PROVIDER 可临时切换，例如：
+#   ARCHIVER_PROVIDER=dryrun ./run.sh daily "测试一下"
+# dryrun 不调外部 API，会直接拿一段假数据走完链路，方便联调 Shortcuts。
+provider: deepseek
+
+models:
+  anthropic:
+    model: claude-sonnet-4-5
+    api_key_env: ANTHROPIC_API_KEY
+    base_url: https://api.anthropic.com/v1/messages
+  openai:
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    base_url: https://api.openai.com/v1/chat/completions
+  deepseek:
+    model: deepseek-chat
+    api_key_env: DEEPSEEK_API_KEY
+    base_url: https://api.deepseek.com/v1/chat/completions
+
+# ===== 操作菜单 =====
+# 每个操作 = 固定 prompt + 固定目标文件 + 固定章节策略
+# section 支持模板变量：{date} {iso_week} {datetime}
+#   - 写 "auto" 表示让 LLM 自己输出 section_name 字段（用于多主题归档）
+actions:
+  daily:
+    label: "追加到今日杂记"
+    target: "今日杂记.md"
+    prompt: prompts/daily.md
+    section: "## {date}"
+
+  shunshoumai:
+    label: "追加到顺手买知识库"
+    target: "顺手买信息.md"
+    prompt: prompts/shunshoumai.md
+    section: "auto"   # LLM 判断主题：供给/实验/埋点/版本/业务方沟通
+
+  todo:
+    label: "提取待办"
+    target: "今日杂记.md"
+    prompt: prompts/todo.md
+    section: "## {date} · 待办"
+
+  meeting:
+    label: "提取会议结论"
+    target: "会议纪要.md"
+    prompt: prompts/meeting.md
+    section: "## {date}"
+
+  divergence:
+    label: "提取产品分歧"
+    target: "产品分歧.md"
+    prompt: prompts/divergence.md
+    section: "## {date}"
+
+  weekly:
+    label: "生成周报素材"
+    target: "周报素材.md"
+    prompt: prompts/weekly.md
+    section: "## 第 {iso_week} 周"
+
+  longxia:
+    label: "追加到龙虾日记素材"
+    target: "龙虾日记素材.md"
+    prompt: prompts/daily.md   # 暂时复用 daily 通用 prompt，后续可单独写
+    section: "## {date}"
+
+# ===== 行为开关 =====
+behavior:
+  # 写入前自动 git commit 一次（作为可回滚检查点）；需要知识库是 git 仓库
+  auto_git_checkpoint: true
+  # 写入后弹 macOS 通知
+  notify: true
+  # 把"本次追加摘要"也回写到知识库根的 _archive_log.md
+  write_archive_log: true
+  # 菜单栏 App：复制后自动弹询问的最小字符数（短于这个数不弹，避免复制 URL/密码时被骚扰）
+  # 默认 100。改成任意自然数即可，菜单里点「🔄 重新加载配置」生效。
+  auto_prompt_min_length: 100
+  # 连续 N 次"跳过"就自动进入免打扰（暂停剪贴板监听）
+  auto_mute_after_skips: 2

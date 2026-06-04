@@ -1,0 +1,15 @@
+# Python venv
+.venv/
+__pycache__/
+*.pyc
+
+# 用户隐私 / 本地状态（绝对不能上 git）
+.env
+.state.json
+
+# 运行时
+.menubar.pid
+.menubar.log
+
+# macOS
+.DS_Store
