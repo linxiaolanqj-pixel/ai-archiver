@@ -126,14 +126,14 @@ def main(argv: list[str] | None = None) -> int:
 
     text = _read_clip()
     if not text.strip():
-        _notify("AI Archiver", "剪贴板为空，先 Cmd+C")
+        _notify("Skillless", "剪贴板为空，先 Cmd+C")
         return 2
     min_len = int((cfg.get("behavior", {}) or {}).get("auto_prompt_min_length", 1))
     if not args.no_min_check and should_skip_text(text, min_len, cfg):
         if len(text.strip()) < min_len:
-            _notify("AI Archiver", f"内容 {len(text.strip())} 字，少于门槛 {min_len}")
+            _notify("Skillless", f"内容 {len(text.strip())} 字，少于门槛 {min_len}")
         else:
-            _notify("AI Archiver", "剪贴板内容被防误触跳过（代码/超长/黑名单）")
+            _notify("Skillless", "剪贴板内容被防误触跳过（代码/超长/黑名单）")
         return 2
 
     target = args.target
@@ -180,17 +180,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         r = subprocess.run(cmd, input=text, capture_output=True, text=True, timeout=300, cwd=str(SCRIPT_DIR))
     except subprocess.TimeoutExpired:
-        _notify("AI Archiver", "归档超时")
+        _notify("Skillless", "归档超时")
         return 1
     if r.returncode != 0:
-        _notify("AI Archiver · 失败", (r.stderr or r.stdout or "未知错误")[:120])
+        _notify("Skillless · 失败", (r.stderr or r.stdout or "未知错误")[:120])
         return 1
     msg = ""
     for line in (r.stdout or "").splitlines():
         if line.startswith("[archiver]"):
             msg = line.replace("[archiver]", "").strip()
             break
-    _notify("AI Archiver ✅", msg or f"已写入 {target}")
+    _notify("Skillless ✅", msg or f"已写入 {target}")
     return 0
 
 

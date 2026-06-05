@@ -17,7 +17,7 @@ trap 'rm -f "$TMP_FILE"' EXIT
 cat > "$TMP_FILE"
 
 if [ ! -s "$TMP_FILE" ]; then
-  osascript -e 'display notification "没有选中文字，先选一段再触发快捷键" with title "AI Archiver"' || true
+  osascript -e 'display notification "没有选中文字，先选一段再触发快捷键" with title "Skillless"' || true
   exit 0
 fi
 
@@ -51,7 +51,7 @@ fi
 ACTION=$(printf '%s' "$CHOICE" | sed -E 's/.*\(([a-z_]+)\).*/\1/')
 
 if [ -z "$ACTION" ]; then
-  osascript -e 'display notification "解析操作失败" with title "AI Archiver"' || true
+  osascript -e 'display notification "解析操作失败" with title "Skillless"' || true
   exit 1
 fi
 

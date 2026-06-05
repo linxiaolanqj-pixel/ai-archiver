@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>AI Archiver · 白色极简 UI 设计方案</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: -apple-system, "PingFang SC", "SF Pro Text", "Helvetica Neue", sans-serif;
+    background: #f6f7f9;
+    color: #1f2937;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 48px 32px 96px; }
+
+  /* —— 顶部 —— */
+  .hero { margin-bottom: 36px; }
+  .hero .eyebrow { font-size: 12px; color: #94a3b8; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .hero h1 { font-size: 32px; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .hero p { font-size: 14px; color: #475569; max-width: 720px; }
+
+  /* —— 章节 —— */
+  section { margin-bottom: 40px; }
+  section h2 {
+    font-size: 18px; font-weight: 700; color: #0f172a;
+    margin-bottom: 6px; display: flex; align-items: baseline; gap: 10px;
+  }
+  section h2 .idx {
+    display: inline-flex; width: 22px; height: 22px;
+    background: #0f172a; color: #ffffff;
+    border-radius: 6px; font-size: 12px; font-weight: 700;
+    align-items: center; justify-content: center;
+    letter-spacing: 0;
+  }
+  section .lead { font-size: 13px; color: #64748b; margin-bottom: 18px; max-width: 720px; }
+  h3 { font-size: 13px; font-weight: 700; color: #0f172a; margin: 18px 0 8px; }
+  h4 { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+
+  /* —— 信息卡片框 —— */
+  .panel {
+    background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .panel + .panel { margin-top: 12px; }
+  .note {
+    background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;
+    padding: 12px 14px; font-size: 12.5px; color: #92400e;
+  }
+  .note strong { color: #78350f; }
+
+  /* —— 网格 —— */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+  /* —— 色板 —— */
+  .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .swatch {
+    background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px;
+    overflow: hidden;
+  }
+  .swatch .chip { height: 56px; }
+  .swatch .meta { padding: 8px 10px; }
+  .swatch .name { font-size: 11px; color: #475569; font-weight: 700; }
+  .swatch .hex { font-size: 11px; color: #94a3b8; font-family: ui-monospace, Menlo, monospace; margin-top: 2px; }
+
+  /* —— 字号阶梯 —— */
+  .type-row {
+    display: grid; grid-template-columns: 100px 80px 1fr; gap: 16px;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e5e7eb;
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-row .label { font-size: 11px; color: #94a3b8; font-family: ui-monospace, Menlo, monospace; }
+  .type-row .size { font-size: 11px; color: #475569; font-family: ui-monospace, Menlo, monospace; }
+  .type-row .sample { color: #0f172a; }
+
+  /* —— Token 表 —— */
+  .tokens { display: grid; grid-template-columns: 120px 1fr 1fr; gap: 0; }
+  .tokens > div {
+    padding: 9px 12px; font-size: 12.5px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .tokens > div:nth-child(3n+1) { color: #475569; font-weight: 600; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+  .tokens > div:nth-child(3n+2) { color: #0f172a; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+  .tokens > div:nth-child(3n) { color: #64748b; }
+
+  /* —— Mockup 通用 —— */
+  .mock-stage {
+    background:
+      linear-gradient(transparent 0 calc(100% - 1px), #eef2f7 calc(100% - 1px) 100%),
+      linear-gradient(90deg, transparent 0 calc(100% - 1px), #eef2f7 calc(100% - 1px) 100%);
+    background-size: 24px 24px;
+    background-color: #fafbfc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 32px;
+    display: flex; gap: 24px; flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .mock-label {
+    font-size: 11px; color: #94a3b8; text-align: center;
+    margin-top: 10px;
+  }
+  .mock-cell { display: flex; flex-direction: column; align-items: center; }
+
+  /* —— 胶囊白色版 mockup —— */
+  .caps {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+    color: #1f2937;
+  }
+  .caps-thinking {
+    width: 220px; height: 52px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 16px;
+    font-size: 13px; font-weight: 600; color: #475569;
+  }
+  .caps-thinking .spin {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid #e5e7eb;
+    border-top-color: #0ea5e9;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .caps-result { width: 480px; }
+  .caps-result .head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px 6px;
+  }
+  .caps-result .head .ico {
+    width: 18px; height: 18px; border-radius: 999px;
+    background: #e0f2fe; color: #0284c7;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .caps-result .head .title { font-size: 13px; font-weight: 700; color: #0f172a; }
+  .caps-result .head .tgt-wrap {
+    display: inline-flex; align-items: center; gap: 2px;
+    margin-left: auto;
+    color: #64748b; font-size: 11px;
+    background: #f8fafc; padding: 3px 4px 3px 8px; border-radius: 6px;
+  }
+  .caps-result .head .tgt-wrap .arrow {
+    color: #94a3b8; font-size: 13px; padding: 0 2px;
+    cursor: pointer; line-height: 1;
+  }
+  .caps-result .head .x {
+    width: 20px; height: 20px; border-radius: 6px;
+    color: #94a3b8; font-size: 11px;
+    display: grid; place-items: center;
+  }
+  .caps-result .body {
+    padding: 4px 14px 6px;
+    font-size: 13px; color: #334155;
+    line-height: 1.62;
+  }
+  .caps-result .body h2 {
+    color: #0284c7; font-size: 13.5px; font-weight: 700;
+    margin: 6px 0 3px;
+  }
+  .caps-result .body strong { color: #b45309; font-weight: 700; }
+  .caps-result .body code {
+    background: #f1f5f9; padding: 1px 5px; border-radius: 4px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    color: #be185d;
+  }
+  .caps-result .body ul { margin: 4px 0 4px 18px; }
+  .caps-result .actions {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px 14px;
+  }
+  .caps-result .btn {
+    padding: 6px 12px; border-radius: 7px;
+    border: 1px solid #e5e7eb; background: #ffffff;
+    color: #1f2937; font-size: 12.5px; font-weight: 600;
+  }
+  .caps-result .btn.ghost { background: transparent; border-color: transparent; color: #64748b; }
+  .caps-result .btn.primary {
+    background: #0f172a; color: #ffffff; border-color: #0f172a;
+  }
+  .caps-result .spacer { flex: 1; }
+
+  .caps-feedback {
+    width: 320px; height: 52px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 18px;
+    font-size: 13px; font-weight: 700; color: #0f172a;
+  }
+  .caps-feedback .ok {
+    width: 22px; height: 22px; border-radius: 999px;
+    background: #16a34a; color: #ffffff;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 800;
+  }
+
+  /* —— 现版黑色胶囊 mockup（对比用） —— */
+  .caps-dark {
+    background: rgba(17, 24, 39, 0.96);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    color: #f1f5f9;
+    overflow: hidden;
+  }
+  .caps-dark.caps-result .head .ico { background: rgba(56,189,248,0.18); color: #38bdf8; }
+  .caps-dark.caps-result .head .title { color: #f1f5f9; }
+  .caps-dark.caps-result .head .tgt-wrap { background: rgba(255,255,255,0.06); color: #94a3b8; }
+  .caps-dark.caps-result .head .tgt-wrap .arrow { color: #64748b; }
+  .caps-dark.caps-result .head .x { color: #64748b; }
+  .caps-dark.caps-result .body { color: #e2e8f0; }
+  .caps-dark.caps-result .body h2 { color: #38bdf8; }
+  .caps-dark.caps-result .body strong { color: #fde047; }
+  .caps-dark.caps-result .body code { background: rgba(255,255,255,0.08); color: #fbcfe8; }
+  .caps-dark.caps-result .btn { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #f1f5f9; }
+  .caps-dark.caps-result .btn.ghost { background: transparent; color: #94a3b8; border-color: transparent; }
+  .caps-dark.caps-result .btn.primary { background: #f1f5f9; color: #0f172a; border-color: #f1f5f9; }
+
+  /* —— 对比卡 —— */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .compare .col {
+    background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 18px 18px 22px;
+  }
+  .compare .col .tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px;
+    margin-bottom: 10px; letter-spacing: 0.04em;
+  }
+  .compare .col .tag.now { background: #fef2f2; color: #b91c1c; }
+  .compare .col .tag.next { background: #ecfdf5; color: #047857; }
+  .compare .col .frame {
+    background: #fafbfc; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 18px;
+    display: flex; justify-content: center;
+    min-height: 200px; align-items: center;
+  }
+  .compare .col .frame.dark { background: #1f2733; border-color: #2c3340; }
+  .compare ul.bullets { margin: 12px 0 0 18px; font-size: 12.5px; color: #475569; line-height: 1.75; }
+
+  /* —— 落地清单 —— */
+  .roadmap { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .row {
+    display: grid; grid-template-columns: 60px 1fr 90px 80px; gap: 12px;
+    padding: 12px 14px; background: #ffffff;
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    align-items: center;
+  }
+  .row .pri {
+    text-align: center; font-size: 11px; font-weight: 700;
+    padding: 3px 0; border-radius: 6px;
+  }
+  .row .pri.p0 { background: #fef2f2; color: #b91c1c; }
+  .row .pri.p1 { background: #fffbeb; color: #92400e; }
+  .row .pri.p2 { background: #eff6ff; color: #1d4ed8; }
+  .row .title { font-size: 13px; color: #0f172a; font-weight: 600; }
+  .row .title small { display: block; color: #64748b; font-weight: 400; margin-top: 2px; font-size: 12px; }
+  .row .cost, .row .effort { text-align: center; font-size: 11px; color: #64748b; }
+
+  /* —— 来源/参考 —— */
+  .refs {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .refs span {
+    background: #f1f5f9; color: #475569;
+    font-size: 11.5px; padding: 4px 10px;
+    border-radius: 999px; font-weight: 600;
+  }
+  .refs span::before { content: "·"; margin-right: 6px; color: #94a3b8; }
+
+  /* —— footer —— */
+  footer {
+    margin-top: 48px; padding-top: 18px; border-top: 1px solid #e5e7eb;
+    font-size: 11px; color: #94a3b8;
+  }
+
+  /* —— code 样式 —— */
+  code.kbd {
+    background: #f1f5f9; padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    color: #1d4ed8;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ============== HERO ============== -->
+<div class="hero">
+  <div class="eyebrow">UI Redesign · 2026/06</div>
+  <h1>白色极简方案：让胶囊与后台共用一套设计语言</h1>
+  <p>
+    本报告把 AI Archiver 现在的「黑色胶囊 + 白色后台」整合成一套以白色为基底、
+    强调克制留白与低反差对比的设计语言。胶囊有专门的视觉方案（含路径切换入口
+    <code class="kbd">›</code>），与后台共享同一组 token，避免在两个场景里来回切换审美。
+  </p>
+</div>
+
+<div class="note">
+  <strong>关于参考来源：</strong>当前会话内没有挂载 Mobbin MCP，也没有浏览器 MCP，
+  所以这份报告不是「截图分析」，而是基于业内通行的极简白色 App 设计实践
+  归纳出的 design system。下面所有 mockup 都是为 AI Archiver 原创设计，没有复刻任何具体 App 的 UI。
+  <div class="refs" style="margin-top:10px">
+    <span>Notion / Block-based</span>
+    <span>Linear / Spec-driven</span>
+    <span>Raycast / Spotlight</span>
+    <span>Things 3 / 留白</span>
+    <span>Reflect / Bear / 笔记</span>
+    <span>Cron / Calendar</span>
+    <span>Arc / Browser</span>
+  </div>
+</div>
+
+<!-- ============== §1 设计基线 ============== -->
+<section>
+  <h2><span class="idx">1</span>设计基线</h2>
+  <p class="lead">四条 hard rule，整套 App 共用。每个 UI 元素都用这四条做 sanity check。</p>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>克制对比</h3>
+      <p style="font-size:12.5px;color:#475569">
+        正文 <code class="kbd">#1f2937</code> 配 <code class="kbd">#ffffff</code>，
+        WCAG AAA；次级文字 <code class="kbd">#64748b</code> 配 AA。
+        全局只允许一个 accent（天蓝），其他都是中性灰。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>留白优先</h3>
+      <p style="font-size:12.5px;color:#475569">
+        卡片内边距固定 18-20px；卡片之间 12-16px；
+        正文行高 1.55-1.65，标题 1.3-1.4。
+        不要塞满，宁可少放也别贴边。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>单层级阴影</h3>
+      <p style="font-size:12.5px;color:#475569">
+        全应用只有两种 elevation：
+        <code class="kbd">level-0</code>（无阴影 + 1px 边框）和
+        <code class="kbd">level-1</code>（柔和投影，胶囊/弹层专用）。
+        不叠加。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>系统字体</h3>
+      <p style="font-size:12.5px;color:#475569">
+        不引入网络字体。<code class="kbd">-apple-system, "PingFang SC"</code>
+        在 macOS 上的中英文渲染已经接近完美，加载零成本。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== §2 色板 ============== -->
+<section>
+  <h2><span class="idx">2</span>色板</h2>
+  <p class="lead">15 个色 cover 全部场景。</p>
+
+  <h4>中性</h4>
+  <div class="swatches" style="margin-bottom:16px">
+    <div class="swatch"><div class="chip" style="background:#ffffff;border-bottom:1px solid #f1f5f9"></div><div class="meta"><div class="name">surface / card</div><div class="hex">#ffffff</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#f8fafc"></div><div class="meta"><div class="name">muted bg</div><div class="hex">#f8fafc</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#f1f5f9"></div><div class="meta"><div class="name">subtle bg</div><div class="hex">#f1f5f9</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#e5e7eb"></div><div class="meta"><div class="name">border</div><div class="hex">#e5e7eb</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#cbd5e1"></div><div class="meta"><div class="name">border strong</div><div class="hex">#cbd5e1</div></div></div>
+  </div>
+
+  <h4>文字</h4>
+  <div class="swatches" style="margin-bottom:16px">
+    <div class="swatch"><div class="chip" style="background:#0f172a"></div><div class="meta"><div class="name">text primary</div><div class="hex">#0f172a</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#1f2937"></div><div class="meta"><div class="name">text body</div><div class="hex">#1f2937</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#475569"></div><div class="meta"><div class="name">text muted</div><div class="hex">#475569</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#64748b"></div><div class="meta"><div class="name">text subtle</div><div class="hex">#64748b</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#94a3b8"></div><div class="meta"><div class="name">text disabled</div><div class="hex">#94a3b8</div></div></div>
+  </div>
+
+  <h4>Accent &amp; Status</h4>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:#0284c7"></div><div class="meta"><div class="name">accent (sky-600)</div><div class="hex">#0284c7</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#e0f2fe"></div><div class="meta"><div class="name">accent tint</div><div class="hex">#e0f2fe</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#16a34a"></div><div class="meta"><div class="name">success</div><div class="hex">#16a34a</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#dc2626"></div><div class="meta"><div class="name">danger</div><div class="hex">#dc2626</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#b45309"></div><div class="meta"><div class="name">warning</div><div class="hex">#b45309</div></div></div>
+  </div>
+</section>
+
+<!-- ============== §3 字号 / 间距 / 圆角 ============== -->
+<section>
+  <h2><span class="idx">3</span>字号、间距、圆角</h2>
+  <p class="lead">五个字号 / 五个间距 / 三个圆角，覆盖全部场景。少即多。</p>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h3>字号阶梯（5 级）</h3>
+      <div class="type-row"><span class="label">caption</span><span class="size">11 / 1.4</span><span class="sample" style="font-size:11px">11px · 元数据 / 标签 / 时间戳</span></div>
+      <div class="type-row"><span class="label">label</span><span class="size">12 / 1.5</span><span class="sample" style="font-size:12px">12px · 表单标签 / 按钮文字</span></div>
+      <div class="type-row"><span class="label">body</span><span class="size">13 / 1.6</span><span class="sample" style="font-size:13px">13px · 正文 / 列表项 / 卡片内容</span></div>
+      <div class="type-row"><span class="label">title</span><span class="size">16 / 1.4</span><span class="sample" style="font-size:16px">16px · 卡片标题</span></div>
+      <div class="type-row"><span class="label">page</span><span class="size">22 / 1.3</span><span class="sample" style="font-size:22px;font-weight:700;color:#0f172a">22px · 页面标题</span></div>
+    </div>
+    <div class="panel">
+      <h3>spacing / radius / border</h3>
+      <div class="tokens">
+        <div>space-xs</div><div>4px</div><div>图标与文字之间</div>
+        <div>space-sm</div><div>8px</div><div>按钮组之间 / tag 之间</div>
+        <div>space-md</div><div>12px</div><div>卡片之间</div>
+        <div>space-lg</div><div>16-20px</div><div>卡片内边距 / 页面内边距</div>
+        <div>space-xl</div><div>24-32px</div><div>页面边距</div>
+        <div>radius-sm</div><div>6-7px</div><div>按钮 / tag</div>
+        <div>radius-md</div><div>10-12px</div><div>卡片 / 输入框</div>
+        <div>radius-lg</div><div>16-18px</div><div>胶囊 / 弹层</div>
+        <div>border</div><div>1px #e5e7eb</div><div>所有 surface 唯一描边色</div>
+        <div>shadow-1</div><div>0 8px 24px rgba(15,23,42,0.08)</div><div>胶囊 / 弹层独享</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== §4 胶囊白色版方案 ============== -->
+<section>
+  <h2><span class="idx">4</span>胶囊白色版 · 三态 mockup</h2>
+  <p class="lead">
+    所有交互保留，加入 <code class="kbd">›</code> 切换归档目标的入口（已实装到当前胶囊）。
+    白色版去掉了 backdrop blur 强度，靠柔和阴影做 elevation。
+  </p>
+
+  <div class="mock-stage">
+    <div class="mock-cell">
+      <div class="caps caps-thinking">
+        <span class="spin"></span>
+        <span>AI 正在润色…</span>
+      </div>
+      <div class="mock-label">① Thinking · 220 × 52</div>
+    </div>
+
+    <div class="mock-cell">
+      <div class="caps caps-result">
+        <div class="head">
+          <span class="ico">i</span>
+          <span class="title">AI · 润色</span>
+          <span class="tgt-wrap">
+            → 龙虾自动投喂器设计思路.md
+            <span class="arrow">›</span>
+          </span>
+          <span class="x">✕</span>
+        </div>
+        <div class="body">
+          <h2>结论</h2>
+          <p>晓澜与家欣对齐：供给后台暂时<strong>不做减</strong>，专注通过优秀案例驱动业务自驱。</p>
+          <h2>关键事实</h2>
+          <ul>
+            <li>识别好品 → 谈折扣 → 替代差品（在做）</li>
+            <li>「减必要性不大」<code>auto_kill=false</code></li>
+          </ul>
+        </div>
+        <div class="actions">
+          <span class="btn ghost">↻ 精简</span>
+          <span class="btn">⌘ 复制</span>
+          <span class="spacer"></span>
+          <span class="btn primary">📥 归档</span>
+        </div>
+      </div>
+      <div class="mock-label">② Result · 480 宽（用户可拖拽）</div>
+    </div>
+
+    <div class="mock-cell">
+      <div class="caps caps-feedback">
+        <span class="ok">✓</span>
+        <span>已归档 → 龙虾自动投喂器设计思路.md</span>
+      </div>
+      <div class="mock-label">③ Feedback · 320 × 52，1.4s 后自动关</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== §5 现版 vs 提议 对比 ============== -->
+<section>
+  <h2><span class="idx">5</span>现版 vs 提议 · 同一画面并排</h2>
+  <p class="lead">左边是当前线上的黑色胶囊，右边是提议的白色版。</p>
+  <div class="compare">
+    <div class="col">
+      <span class="tag now">CURRENT · DARK</span>
+      <div class="frame dark">
+        <div class="caps caps-dark caps-result" style="width: 100%; max-width: 420px">
+          <div class="head">
+            <span class="ico">i</span>
+            <span class="title">AI · 润色</span>
+            <span class="tgt-wrap">→ 龙虾.md<span class="arrow">›</span></span>
+            <span class="x">✕</span>
+          </div>
+          <div class="body">
+            <h2>结论</h2>
+            <p>供给后台暂时<strong>不做减</strong>。</p>
+          </div>
+          <div class="actions">
+            <span class="btn ghost">↻ 精简</span>
+            <span class="btn">⌘ 复制</span>
+            <span class="spacer"></span>
+            <span class="btn primary">📥 归档</span>
+          </div>
+        </div>
+      </div>
+      <ul class="bullets">
+        <li>对比强烈，半夜屏幕容易刺眼</li>
+        <li>与白色后台审美割裂，切换上下文有成本</li>
+        <li>白底网页 / IDE 上突然弹黑色，注意力被强制拉走</li>
+      </ul>
+    </div>
+
+    <div class="col">
+      <span class="tag next">PROPOSED · WHITE</span>
+      <div class="frame">
+        <div class="caps caps-result" style="width: 100%; max-width: 420px">
+          <div class="head">
+            <span class="ico">i</span>
+            <span class="title">AI · 润色</span>
+            <span class="tgt-wrap">→ 龙虾.md<span class="arrow">›</span></span>
+            <span class="x">✕</span>
+          </div>
+          <div class="body">
+            <h2>结论</h2>
+            <p>供给后台暂时<strong>不做减</strong>。</p>
+          </div>
+          <div class="actions">
+            <span class="btn ghost">↻ 精简</span>
+            <span class="btn">⌘ 复制</span>
+            <span class="spacer"></span>
+            <span class="btn primary">📥 归档</span>
+          </div>
+        </div>
+      </div>
+      <ul class="bullets">
+        <li>视觉上「融入」当前页面，不抢注意力</li>
+        <li>与后台共用 token，切换无感</li>
+        <li>elevation 靠柔和阴影，仍有「悬浮感」</li>
+        <li>夜间模式后续单独做（跟随系统）</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============== §6 dashboard 微调 ============== -->
+<section>
+  <h2><span class="idx">6</span>后台 dashboard 视觉微调</h2>
+  <p class="lead">现版后台已经是白色，但有几个小地方可以再克制一下。</p>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h3>① 去掉渐变与多余阴影</h3>
+      <p style="font-size:12.5px;color:#475569">
+        现在 <code class="kbd">.stat-card</code> 和 <code class="kbd">.default-doc-card</code> 都用了
+        <code class="kbd">linear-gradient</code>，建议改成纯 <code class="kbd">#f0f9ff</code> 单色 +
+        <code class="kbd">1px #bae6fd</code> 边框。性能提升一截，视觉更稳。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>② 状态色用 tint 不用 bold</h3>
+      <p style="font-size:12.5px;color:#475569">
+        删除按钮、清空历史现在用了红色文字 / 红边框。改成 hover 才显红，平时是中性灰，
+        减少「红色噪音」。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>③ 卡片标题字号统一 13→14</h3>
+      <p style="font-size:12.5px;color:#475569">
+        现版 <code class="kbd">h3</code> 是 13px（同 body），层级感弱。
+        升到 14px + 700 weight，让标题真正成为锚点。
+      </p>
+    </div>
+    <div class="panel">
+      <h3>④ 侧边栏 icon 字号</h3>
+      <p style="font-size:12.5px;color:#475569">
+        现版 emoji 占了主导（📊 📜 📕 ⌨️），略卡通。
+        Option A：换成统一描线 SVG icon；
+        Option B：保留 emoji 但调小到 13px，与文字平视。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== §7 落地清单 ============== -->
+<section>
+  <h2><span class="idx">7</span>落地清单 · 按 ROI 排序</h2>
+  <p class="lead">每条都带「代价 / 工作量」，方便你选择性落地。</p>
+
+  <div class="roadmap">
+    <div class="row">
+      <div class="pri p0">P0</div>
+      <div class="title">胶囊路径切换 <code class="kbd">›</code> 入口
+        <small>已实装。点 target 旁边的 › 即可换默认文档（kb 内外都支持）。</small>
+      </div>
+      <div class="cost">无破坏</div>
+      <div class="effort">已完成</div>
+    </div>
+    <div class="row">
+      <div class="pri p0">P0</div>
+      <div class="title">胶囊白色版（含三态）
+        <small>替换 <code class="kbd">quick/capsule.html</code> 的色板，保留全部交互。约 60 行 CSS 改动。</small>
+      </div>
+      <div class="cost">无功能影响</div>
+      <div class="effort">~ 20 min</div>
+    </div>
+    <div class="row">
+      <div class="pri p1">P1</div>
+      <div class="title">后台 stat-card 去渐变 + 阴影
+        <small>性能 + 视觉双收益。配合上一轮性能优化，切 tab 更顺。</small>
+      </div>
+      <div class="cost">视觉小幅变化</div>
+      <div class="effort">~ 10 min</div>
+    </div>
+    <div class="row">
+      <div class="pri p1">P1</div>
+      <div class="title">卡片 h3 字号升到 14px + 加强层级
+        <small>当前 h3 与 body 同字号，弱化了卡片标题。</small>
+      </div>
+      <div class="cost">无</div>
+      <div class="effort">~ 5 min</div>
+    </div>
+    <div class="row">
+      <div class="pri p2">P2</div>
+      <div class="title">侧边栏 emoji → SVG icon
+        <small>真正系统化，需要引入一组 24px outline icon（如 Lucide）。</small>
+      </div>
+      <div class="cost">引入字体/SVG</div>
+      <div class="effort">~ 1 hr</div>
+    </div>
+    <div class="row">
+      <div class="pri p2">P2</div>
+      <div class="title">跟随系统 dark mode（胶囊 + 后台共用）
+        <small>白天白色、夜间深色。需要把所有色都换 CSS variable。</small>
+      </div>
+      <div class="cost">中等重构</div>
+      <div class="effort">~ 2-3 hr</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== §8 待定 ============== -->
+<section>
+  <h2><span class="idx">8</span>需要你确认</h2>
+  <div class="panel">
+    <ul style="font-size:13px;color:#334155;line-height:1.85;padding-left:18px">
+      <li><strong>胶囊黑→白</strong>：要立即把生产胶囊换成白色版吗？还是先保留黑色 + 提供一个 setting 切换？</li>
+      <li><strong>Mobbin MCP</strong>：当前会话没挂这个 MCP。如果你需要我真去抓真实 App 截图分析，麻烦在 Cursor 设置里挂一下（或者告诉我 mobbin 账号怎么走），下一轮我可以基于真实截图再深化报告。</li>
+      <li><strong>SVG icon 库</strong>：要不要引入 Lucide / Tabler 这类 outline icon 替换 emoji？</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  AI Archiver · UI Redesign Report · 2026-06-05 · 单文件 HTML，可直接 <code>open</code> 打开
+</footer>
+
+</div>
+</body>
+</html>

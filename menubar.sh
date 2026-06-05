@@ -46,21 +46,37 @@ _is_running() {
 }
 
 cmd_start() {
-  if pid=$(_is_running); then
-    echo "[menubar] 已经在跑 (pid=$pid)"
-    return 0
+  # 先清掉所有同名进程，避免重复实例导致图标失效
+  local existing
+  existing=$(pgrep -f "archiver_menubar.py" || true)
+  if [ -n "$existing" ]; then
+    echo "[menubar] 发现已有进程：$existing，全部清理"
+    pgrep -f "archiver_menubar.py" | xargs -r kill 2>/dev/null || true
+    sleep 1
+    pgrep -f "archiver_menubar.py" | xargs -r kill -9 2>/dev/null || true
+    sleep 0.5
   fi
-  echo "[menubar] 启动中…"
+  rm -f "$PID_FILE"
+  echo "[menubar] 启动中…(使用 $PY)"
   nohup "$PY" "$APP_PY" >> "$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
   sleep 1
   if pid=$(_is_running); then
-    echo "[menubar] ✓ 已启动 (pid=$pid)，看屏幕右上角的 🗂"
+    echo "[menubar] ✓ 已启动 (pid=$pid)，看屏幕右上角的 📥"
   else
     echo "[menubar] ✗ 启动失败，看 $LOG_FILE"
     tail -20 "$LOG_FILE" 2>/dev/null || true
     return 1
   fi
+}
+
+cmd_nuke() {
+  echo "[menubar] 清理所有 archiver_menubar.py 进程"
+  pgrep -f "archiver_menubar.py" | xargs -r kill 2>/dev/null || true
+  sleep 1
+  pgrep -f "archiver_menubar.py" | xargs -r kill -9 2>/dev/null || true
+  rm -f "$PID_FILE"
+  echo "[menubar] ✓ 已全部清理"
 }
 
 cmd_stop() {
@@ -155,17 +171,19 @@ case "${1:-}" in
   enable)    cmd_enable ;;
   disable)   cmd_disable ;;
   logs)      cmd_logs ;;
+  nuke)      cmd_nuke ;;
   *)
     cat <<USAGE
 用法：$(basename "$0") <command>
 
-  start     启动菜单栏 App
+  start     启动菜单栏 App（自动清理重复进程）
   stop      停止
   restart   重启
   status    查看状态
   enable    设为开机自启（推荐）
   disable   取消开机自启
   logs      看运行日志
+  nuke      暴力清理所有同名进程（图标消失时用）
 USAGE
     exit 1
     ;;

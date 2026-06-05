@@ -1,5 +1,5 @@
 knowledge_base:
-  root: /Users/linxiaolan10/knowledge/我的知识库
+  root: /Users/linxiaolan10/knowledge
 provider: deepseek
 models:
   anthropic:
@@ -54,12 +54,12 @@ behavior:
   auto_git_checkpoint: true
   notify: true
   write_archive_log: true
-  auto_prompt_min_length: 100      # 少于这个字数不弹
-  auto_prompt_max_length: 2500     # 超过这个字数不弹（默认 2500，长代码/长文不打扰）
+  auto_prompt_min_length: 100
+  auto_prompt_max_length: 2500
   auto_mute_after_skips: 2
   ai_preview_before_write: true
-  skip_code_like: true             # 自动识别代码/配置/命令并跳过
-  clipboard_stable_ms: 700         # 复制后稳定这么久才弹（防连续复制覆盖）
+  skip_code_like: true
+  clipboard_stable_ms: 700
   skip_blacklist:
   - ^\d{1,4}$
   - ^[A-Za-z0-9_-]{6,}$

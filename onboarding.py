@@ -289,9 +289,10 @@ def run_onboarding(force: bool = False) -> bool:
         )
         return False
 
-    cmd = [PY, str(win_script)]
-    if force:
-        cmd.append("--force")
+    from bootkit import child_cmd
+
+    extra = ["--force"] if force else []
+    cmd = child_cmd("onboarding", *extra)
     print("[onboarding] 正在打开引导窗口…", flush=True)
     try:
         r = subprocess.run(cmd, cwd=str(SCRIPT_DIR), timeout=7200)

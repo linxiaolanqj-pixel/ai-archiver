@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AI Archiver — 选中文本 → 结构化 → 追加到本地 Markdown 知识库
+"""Skillless — 选中文本 → 结构化 → 追加到本地 Markdown 知识库
 
 用法：
     archiver.py <action> --text "原始文本"
@@ -184,6 +184,14 @@ def _extract_json(raw: str) -> dict[str, Any]:
 
 # ----------------------------- 写入逻辑 -----------------------------
 
+def _resolve_target(root: Path, target_str: str) -> Path:
+    """识别绝对/相对路径：绝对路径直接 resolve；相对路径放到 kb_root 下。"""
+    p = Path(target_str).expanduser()
+    if p.is_absolute():
+        return p.resolve()
+    return (root / p).resolve()
+
+
 def _git_checkpoint(kb_root: Path, action: str) -> None:
     if not (kb_root / ".git").exists():
         return
@@ -310,7 +318,7 @@ def prepare_archive(
     root = _expand(config["knowledge_base"]["root"])
     action_cfg = _get_action_cfg(config, action)
     target_rel = target_override or action_cfg["target"]
-    target = root / target_rel
+    target = _resolve_target(root, target_rel)
 
     if mode == "raw":
         summary, md_body = _build_raw_markdown(raw_text)
@@ -363,7 +371,7 @@ def commit_prepared(payload: dict[str, Any], *, notify: bool | None = None) -> N
     root = _expand(config["knowledge_base"]["root"])
     action = payload["action"]
     action_cfg = _get_action_cfg(config, action)
-    target = root / payload["target"]
+    target = _resolve_target(root, payload["target"])
     section_heading = payload["section_heading"]
     md_body = payload["markdown"]
     summary = payload.get("summary", "已追加")
@@ -379,7 +387,7 @@ def commit_prepared(payload: dict[str, Any], *, notify: bool | None = None) -> N
     print(f"[archiver] ✓ {summary}\n  → {target}\n  ↳ {section_heading}")
     do_notify = notify if notify is not None else config["behavior"].get("notify", True)
     if do_notify:
-        _notify(f"AI Archiver · {action_cfg.get('label', action)}", summary)
+        _notify(f"Skillless · {action_cfg.get('label', action)}", summary)
 
 
 def run(
@@ -404,7 +412,7 @@ def run(
         msg = payload.get("summary") or "LLM 没产出可追加的内容"
         print(f"[archiver] 跳过写入：{msg}")
         if _load_config()["behavior"].get("notify", True):
-            _notify("AI Archiver · 跳过", msg)
+            _notify("Skillless · 跳过", msg)
         return
 
     config = _load_config()
@@ -438,7 +446,7 @@ def list_actions() -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="AI Archiver")
+    p = argparse.ArgumentParser(description="Skillless")
     p.add_argument("action", nargs="?", help="操作名，例如 daily / shunshoumai / todo")
     p.add_argument("--text", help="直接传入原始文本")
     p.add_argument("--from-stdin", action="store_true", help="从 stdin 读取")

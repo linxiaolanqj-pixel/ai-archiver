@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AI Archiver 菜单栏 App — 复制即归档 + 新客引导 + 预览确认 + 黑名单"""
+"""Skillless 菜单栏 App — 复制即归档 + 新手引导 + 预览确认 + 黑名单"""
 
 from __future__ import annotations
 
@@ -113,6 +113,7 @@ class ArchiverApp(rumps.App):
         self._ai_mode = True
         self._hotkey_monitor = None
         self._hotkey_last_at: dict[str, float] = {}
+        self._quick_proc: subprocess.Popen | None = None
 
         self._load_config()
         self._build_menu()
@@ -137,7 +138,7 @@ class ArchiverApp(rumps.App):
                 self._build_menu()
                 self._update_title()
         except Exception as e:
-            rumps.notification("AI Archiver", "新客引导失败", str(e)[:120])
+            rumps.notification("Skillless", "新客引导失败", str(e)[:120])
         finally:
             self._onboarding_active = False
             if onboarding_done():
@@ -202,6 +203,8 @@ class ArchiverApp(rumps.App):
 
     def _short_label(self, rel: str) -> str:
         p = Path(rel)
+        if p.is_absolute():
+            return p.stem
         if len(p.parts) == 1:
             return p.stem
         return f"{p.stem} · {p.parent}"
@@ -242,7 +245,6 @@ class ArchiverApp(rumps.App):
 
         self.menu.add(rumps.separator)
         self.menu.add(rumps.MenuItem(f"📁 知识库：{self._kb_root.name}", callback=self._open_kb))
-        self.menu.add(rumps.MenuItem("🌟 更换默认归档文档…", callback=self._settings_default_doc))
         self.menu.add(rumps.MenuItem("⚙️ 设置 API Key…", callback=self._settings_api))
         self.menu.add(rumps.MenuItem("📏 调整复制门槛…", callback=self._settings_threshold))
         self.menu.add(rumps.MenuItem("🛡️ 防误触：长文/代码…", callback=self._settings_protect))
@@ -261,13 +263,15 @@ class ArchiverApp(rumps.App):
     def _watch_label(self) -> str:
         if self._onboarding_active:
             return "⏸ 新客引导中（暂不监听复制）"
-        return f"{'✅' if self._watch_mode else '⬜'} 旧模式：Cmd+C 后自动询问（≥{self._min_length} 字）"
+        default = get_default_target()
+        suffix = f"→ {Path(default).name}" if default else "（未设置默认文档）"
+        return f"{'✅' if self._watch_mode else '⬜'} Cmd+C 弹对比浮层（≥{self._min_length} 字 {suffix}）"
 
     def _make_handler(self, target: str):
         def handler(_s):
             text = _read_clipboard()
             if not text.strip():
-                rumps.notification("AI Archiver", "剪贴板为空", "先 Cmd+C 复制")
+                rumps.notification("Skillless", "剪贴板为空", "先 Cmd+C 复制")
                 return
             self._archive_async(target, text)
         return handler
@@ -275,7 +279,7 @@ class ArchiverApp(rumps.App):
     def _pick_from_all_folders(self, _s) -> None:
         text = _read_clipboard()
         if not text.strip():
-            rumps.notification("AI Archiver", "剪贴板为空", "先 Cmd+C 复制一段文字")
+            rumps.notification("Skillless", "剪贴板为空", "先 Cmd+C 复制一段文字")
             return
         self._dialog_open = True
         try:
@@ -288,7 +292,7 @@ class ArchiverApp(rumps.App):
     def _main_new_file(self, _s) -> None:
         text = _read_clipboard()
         if not text.strip():
-            rumps.notification("AI Archiver", "剪贴板为空", "先 Cmd+C")
+            rumps.notification("Skillless", "剪贴板为空", "先 Cmd+C")
             return
         t = self._handle_new_file()
         if t:
@@ -322,7 +326,7 @@ class ArchiverApp(rumps.App):
             try:
                 self._handle_global_hotkey(event)
             except Exception as e:
-                rumps.notification("AI Archiver", "快捷键监听出错", str(e)[:120])
+                rumps.notification("Skillless", "快捷键监听出错", str(e)[:120])
 
         try:
             self._hotkey_monitor = AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
@@ -330,7 +334,7 @@ class ArchiverApp(rumps.App):
                 handler,
             )
         except Exception as e:
-            rumps.notification("AI Archiver", "快捷键监听未启动", str(e)[:120])
+            rumps.notification("Skillless", "快捷键监听未启动", str(e)[:120])
 
     def _handle_global_hotkey(self, event) -> None:
         combo = normalize_hotkey(event_to_hotkey(event))
@@ -366,7 +370,7 @@ class ArchiverApp(rumps.App):
                 start_new_session=True,
             )
         except Exception as e:
-            rumps.notification("AI Archiver", f"{info.get('name', key)} 启动失败", str(e)[:120])
+            rumps.notification("Skillless", f"{info.get('name', key)} 启动失败", str(e)[:120])
 
     def _poll_clipboard(self, _s) -> None:
         if self._onboarding_active:
@@ -393,11 +397,41 @@ class ArchiverApp(rumps.App):
 
             if not self._watch_mode or self._dialog_open:
                 return
+            if self._quick_proc and self._quick_proc.poll() is None:
+                return
             if should_skip_text(cur, self._min_length, self._cfg):
                 return
-            threading.Thread(target=self._ask_and_archive, args=(cur,), daemon=True).start()
+            if self._max_length and len(cur.strip()) > self._max_length:
+                return
+            self._open_quick_compare()
+
+    def _open_quick_compare(self) -> None:
+        """打开胶囊浮层（Raycast 风格，鼠标边小卡片）。
+
+        胶囊内可点「⤢ 详细」拉起大对比浮层 quick_archive.py。
+        """
+        default = get_default_target()
+        if not default:
+            rumps.notification(
+                "Skillless",
+                "尚未设置默认文档",
+                "菜单栏 → 🌟 更换默认归档文档",
+            )
+            return
+        try:
+            from bootkit import child_cmd
+            self._quick_proc = subprocess.Popen(
+                child_cmd("capsule", "--target", default, "--mode", "polish"),
+                cwd=str(SCRIPT_DIR),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as e:
+            rumps.notification("Skillless", "浮层启动失败", str(e)[:120])
 
     def _ask_and_archive(self, text: str) -> None:
+        """旧版「选目标 + 写入」流程；保留给手动触发的入口（菜单里 📂 选择写入目标）。"""
         self._dialog_open = True
         try:
             self._load_config()
@@ -418,7 +452,7 @@ class ArchiverApp(rumps.App):
             self._watch_mode = False
             self._watch_item.title = self._watch_label()
             rumps.notification(
-                "AI Archiver · 免打扰",
+                "Skillless · 免打扰",
                 f"连续跳过 {self._skip_streak} 次",
                 "菜单里可重新打开监听",
             )
@@ -524,7 +558,7 @@ class ArchiverApp(rumps.App):
         if rel:
             self._load_config()
             self._build_menu()
-            rumps.notification("AI Archiver", "已创建", rel)
+            rumps.notification("Skillless", "已创建", rel)
         return rel
 
     def _archive_async(self, target: str, text: str) -> None:
@@ -546,14 +580,14 @@ class ArchiverApp(rumps.App):
         if use_raw:
             action = action or next(iter(self._cfg.get("actions", {})), None)
             if not action:
-                rumps.notification("AI Archiver", "无可用 action", "")
+                rumps.notification("Skillless", "无可用 action", "")
                 return
             env = {**os.environ, "ARCHIVER_MODE": "raw", "ARCHIVER_TARGET": target}
             r = subprocess.run(
                 [RUN_SH, action], input=text, capture_output=True, text=True, timeout=60, env=env,
             )
             if r.returncode != 0:
-                rumps.notification("AI Archiver · 失败", "", (r.stderr or r.stdout)[:200])
+                rumps.notification("Skillless · 失败", "", (r.stderr or r.stdout)[:200])
                 return
         self._skip_streak = 0
         record_target_usage(target)
@@ -569,7 +603,7 @@ class ArchiverApp(rumps.App):
             payload = self._preview_ai(action, text, target)
             if not payload or not payload.get("ok"):
                 msg = (payload or {}).get("summary", "AI 梳理失败")
-                rumps.notification("AI Archiver", msg, "检查 API Key 或网络")
+                rumps.notification("Skillless", msg, "检查 API Key 或网络")
                 return
             confirmed = self._confirm_preview(payload)
             if not confirmed:
@@ -579,7 +613,7 @@ class ArchiverApp(rumps.App):
         else:
             r = subprocess.run([RUN_SH, action], input=text, capture_output=True, text=True, timeout=120)
             if r.returncode != 0:
-                rumps.notification("AI Archiver · 失败", "", (r.stderr or r.stdout)[:200])
+                rumps.notification("Skillless · 失败", "", (r.stderr or r.stdout)[:200])
                 return
             self._skip_streak = 0
             record_target_usage(target)
@@ -631,10 +665,10 @@ class ArchiverApp(rumps.App):
                 capture_output=True, text=True, timeout=60,
             )
         except Exception as e:
-            rumps.notification("AI Archiver", "写入失败", str(e))
+            rumps.notification("Skillless", "写入失败", str(e))
             return
         if r.returncode != 0:
-            rumps.notification("AI Archiver", "写入失败", (r.stderr or r.stdout)[:200])
+            rumps.notification("Skillless", "写入失败", (r.stderr or r.stdout)[:200])
             return
         self._skip_streak = 0
         t = payload.get("target", "")
@@ -649,7 +683,7 @@ class ArchiverApp(rumps.App):
             return
         set_default_target(rel)
         self._build_menu()
-        rumps.notification("AI Archiver", f"默认 → {self._short_label(rel)}", "🌟 已更新")
+        rumps.notification("Skillless", f"默认 → {self._short_label(rel)}", "🌟 已更新")
 
     def _toast(self, target: str, count: int, is_raw: bool) -> None:
         tag = "原文" if is_raw else "AI"
@@ -679,7 +713,7 @@ class ArchiverApp(rumps.App):
         if key.startswith("sk-"):
             save_api_key(key)
             _load_env_file(SCRIPT_DIR / ".env")
-            rumps.notification("AI Archiver", "API 已保存 ✅", "已写入 .env")
+            rumps.notification("Skillless", "API 已保存 ✅", "已写入 .env")
 
     def _settings_threshold(self, _s) -> None:
         script = (
@@ -698,7 +732,7 @@ class ArchiverApp(rumps.App):
             set_min_length(n)
             self._load_config()
             self._watch_item.title = self._watch_label()
-            rumps.notification("AI Archiver", f"门槛已改为 {n} 字", "")
+            rumps.notification("Skillless", f"门槛已改为 {n} 字", "")
         except ValueError:
             pass
 
@@ -728,14 +762,14 @@ class ArchiverApp(rumps.App):
             val = val.split(":", 1)[1].strip()
         parts = [p.strip() for p in val.replace("，", ",").split(",")]
         if len(parts) < 3:
-            rumps.notification("AI Archiver", "格式不对", "需要：max,code,stable")
+            rumps.notification("Skillless", "格式不对", "需要：max,code,stable")
             return
         try:
             new_max = int(parts[0])
             new_code = parts[1] not in ("0", "false", "False", "off", "no")
             new_stable = int(parts[2])
         except ValueError:
-            rumps.notification("AI Archiver", "数字解析失败", val[:80])
+            rumps.notification("Skillless", "数字解析失败", val[:80])
             return
 
         cfg = load_config()
@@ -749,7 +783,7 @@ class ArchiverApp(rumps.App):
         save_config(cfg)
         self._load_config()
         rumps.notification(
-            "AI Archiver",
+            "Skillless",
             "防误触已更新",
             f"max={beh['auto_prompt_max_length']}, code={'on' if new_code else 'off'}, stable={beh['clipboard_stable_ms']}ms",
         )
@@ -770,13 +804,13 @@ class ArchiverApp(rumps.App):
             pat = pat.split(":", 1)[1].strip()
         if pat:
             add_to_blacklist_extra(pat)
-            rumps.notification("AI Archiver", "已追加黑名单", pat[:40])
+            rumps.notification("Skillless", "已追加黑名单", pat[:40])
 
     def _open_prompts(self, _s) -> None:
         PROMPTS_CUSTOM.mkdir(parents=True, exist_ok=True)
         subprocess.run(["open", str(PROMPTS_CUSTOM)])
         rumps.notification(
-            "AI Archiver",
+            "Skillless",
             "自定义 Prompt",
             "在此目录新建 .md，再登记到 config.yaml 的 custom_prompts",
         )
@@ -802,7 +836,7 @@ class ArchiverApp(rumps.App):
                 self._build_menu()
                 self._update_title()
         except Exception as e:
-            rumps.notification("AI Archiver", "新客引导失败", str(e)[:120])
+            rumps.notification("Skillless", "新客引导失败", str(e)[:120])
         finally:
             self._onboarding_active = False
             if onboarding_done():
@@ -816,20 +850,17 @@ class ArchiverApp(rumps.App):
 
     def _open_dashboard(self, _s) -> None:
         """后台 App 必须独立进程跑（webview 主线程要求）。"""
-        dash = SCRIPT_DIR / "dashboard.py"
-        if not dash.exists():
-            rumps.notification("AI Archiver", "缺少 dashboard.py", "")
-            return
         try:
+            from bootkit import child_cmd
             subprocess.Popen(
-                [PY, str(dash)],
+                child_cmd("dashboard"),
                 cwd=str(SCRIPT_DIR),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
         except Exception as e:
-            rumps.notification("AI Archiver", "后台启动失败", str(e)[:120])
+            rumps.notification("Skillless", "后台启动失败", str(e)[:120])
 
     def _view_log(self, _s) -> None:
         log = self._kb_root / "_archive_log.md"
@@ -839,7 +870,7 @@ class ArchiverApp(rumps.App):
         self._load_config()
         self._build_menu()
         self._update_title()
-        rumps.notification("AI Archiver", "已重新加载", "")
+        rumps.notification("Skillless", "已重新加载", "")
 
 
 def main() -> None:

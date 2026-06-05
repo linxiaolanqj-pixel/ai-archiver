@@ -3,21 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI Archiver · 后台</title>
+  <title>Skillless · 后台</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand">🦞 AI Archiver</div>
+      <div class="brand">Skillless</div>
       <nav class="nav">
-        <button type="button" class="nav-item active" data-tab="home">📊 首页</button>
-        <button type="button" class="nav-item" data-tab="history">📜 历史记录</button>
-        <button type="button" class="nav-item" data-tab="dict">📕 词典</button>
-        <button type="button" class="nav-item" data-tab="hotkey">⌨️ 快捷键</button>
+        <div class="nav-group">
+          <button type="button" class="nav-item active" data-tab="home"><span class="nav-ico">●</span><span class="nav-label">首页</span></button>
+          <button type="button" class="nav-item" data-tab="history"><span class="nav-ico">⊟</span><span class="nav-label">历史</span></button>
+          <button type="button" class="nav-item" data-tab="dict"><span class="nav-ico">⊘</span><span class="nav-label">黑名单</span></button>
+          <button type="button" class="nav-item" data-tab="hotkey"><span class="nav-ico">⌘</span><span class="nav-label">快捷键</span></button>
+        </div>
       </nav>
       <div class="sidebar-foot">
-        <button type="button" class="link" id="open-kb">打开知识库 ↗</button>
+        <div class="foot-actions">
+          <button type="button" class="foot-icon" data-foot="kb" title="在 Finder 中打开知识库">⌗</button>
+          <button type="button" class="foot-icon" data-foot="report" title="UI 设计报告">◉</button>
+          <button type="button" class="foot-icon" data-foot="events" title="查看埋点 jsonl">≡</button>
+        </div>
+        <div class="foot-ver">v1.0</div>
       </div>
     </aside>
 

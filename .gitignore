@@ -11,6 +11,15 @@ __pycache__/
 .menubar.pid
 .menubar.log
 .history/
+.reset_backup/
+
+# PyInstaller 产物
+build/
+dist/
+*.spec.bak
 
 # macOS
 .DS_Store
+
+# 调试用
+debug_hotkey.py

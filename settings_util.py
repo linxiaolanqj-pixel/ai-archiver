@@ -235,16 +235,54 @@ def onboarding_done() -> bool:
 
 
 def _sanitize_target_rel(rel: str | None) -> str | None:
-    """过滤误写入的 AppleScript 返回值等非法路径。"""
+    """允许两种合法 target：
+    - 相对路径：kb_root 内的相对路径，如 `daily.md` / `work/会议.md`
+    - 绝对路径：kb_root 外的 `.md` 文件，如 `/Users/xxx/Desktop/temp.md`
+
+    只过滤 AppleScript 错误返回 / 换行 / 非 .md。
+    """
     if not rel:
         return None
     s = str(rel).strip()
     if not s or "button returned" in s or "text returned" in s:
         return None
-    if s.startswith("/") or "\n" in s:
+    if "\n" in s:
         return None
     if not s.lower().endswith(".md"):
         return None
+    return s
+
+
+def resolve_target_path(rel_or_abs: str, cfg: dict | None = None) -> Path:
+    """把 default_target / favorites 里的字符串解析成完整绝对 Path。
+
+    - 以 `/` 开头 → 直接 resolve
+    - 否则 → 视为 kb_root 内相对路径
+    """
+    s = (rel_or_abs or "").strip()
+    if not s:
+        raise ValueError("空 target")
+    p = Path(s).expanduser()
+    if p.is_absolute():
+        return p.resolve()
+    cfg = cfg if cfg is not None else load_config()
+    return (kb_root(cfg) / p).resolve()
+
+
+def display_target(rel_or_abs: str | None) -> str:
+    """UI 展示用：绝对路径优先把 $HOME 替换为 ~ 让长度更友好。"""
+    if not rel_or_abs:
+        return ""
+    s = str(rel_or_abs)
+    p = Path(s).expanduser()
+    if p.is_absolute():
+        try:
+            home = str(Path.home())
+            if s.startswith(home):
+                return "~" + s[len(home):]
+        except Exception:
+            pass
+        return s
     return s
 
 
@@ -281,6 +319,75 @@ def mark_onboarding_done(*, default_target: str | None = None) -> None:
     if rel:
         set_default_target(rel, state=state)
     save_state(state)
+
+
+def get_capsule_size() -> tuple[int, int] | None:
+    """胶囊浮层用户上次调整的尺寸；返回 (w, h) 或 None。"""
+    s = load_state()
+    cs = s.get("capsule_size") or {}
+    try:
+        w = int(cs.get("w") or 0)
+        h = int(cs.get("h") or 0)
+        if w >= 280 and h >= 120:
+            return (w, h)
+    except Exception:
+        pass
+    return None
+
+
+def set_capsule_size(w: int, h: int) -> None:
+    s = load_state()
+    s["capsule_size"] = {"w": int(w), "h": int(h)}
+    save_state(s)
+
+
+APP_THEMES = ("light", "dark")
+
+
+def get_app_theme() -> str:
+    """全局主题（dashboard + 胶囊共用）：light（默认）或 dark。
+
+    向后兼容旧 key `capsule_theme`：white→light，dark→dark。
+    """
+    s = load_state()
+    v = (s.get("app_theme") or "").strip().lower()
+    if not v:
+        # 兼容旧 capsule_theme
+        old = (s.get("capsule_theme") or "").strip().lower()
+        if old == "white":
+            v = "light"
+        elif old == "dark":
+            v = "dark"
+        else:
+            v = "light"
+    if v == "white":
+        v = "light"
+    return v if v in APP_THEMES else "light"
+
+
+def set_app_theme(theme: str) -> str:
+    """设置全局主题，返回归一化后的值。"""
+    t = (theme or "light").strip().lower()
+    if t == "white":
+        t = "light"
+    if t not in APP_THEMES:
+        t = "light"
+    s = load_state()
+    s["app_theme"] = t
+    s.pop("capsule_theme", None)  # 清掉旧 key，避免歧义
+    save_state(s)
+    return t
+
+
+# —— 向后兼容（保留旧名，逐步淘汰）——
+def get_capsule_theme() -> str:
+    """已废弃：用 get_app_theme()。返回胶囊用 dark|white。"""
+    return "dark" if get_app_theme() == "dark" else "white"
+
+
+def set_capsule_theme(theme: str) -> str:
+    """已废弃：用 set_app_theme()。接受 dark|white，转 app_theme。"""
+    return set_app_theme("dark" if theme == "dark" else "light")
 
 
 def get_default_target() -> str | None:
@@ -387,7 +494,7 @@ def save_api_key(key: str) -> None:
         lines.append(f"DEEPSEEK_API_KEY={key}")
     if not lines:
         lines = [
-            "# AI Archiver API Key",
+            "# Skillless API Key",
             "ANTHROPIC_API_KEY=",
             "OPENAI_API_KEY=",
             f"DEEPSEEK_API_KEY={key}",

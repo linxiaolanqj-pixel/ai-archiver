@@ -8,9 +8,9 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       height: 100%;
-      font-family: -apple-system, "PingFang SC", sans-serif;
+      font-family: -apple-system, "PingFang SC", "SF Pro Text", sans-serif;
       background: transparent;
-      color: #e8eef6;
+      color: #1f2937;
       overflow: hidden;
       -webkit-user-select: none;
       user-select: none;
@@ -18,118 +18,253 @@
     .panel {
       width: 100%;
       height: 100%;
-      background: rgba(20, 26, 34, 0.96);
-      border: 1px solid #2a3544;
-      border-radius: 14px;
-      padding: 14px 16px 12px;
-      display: flex;
-      flex-direction: column;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      background: #ffffff;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 16px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+      overflow: hidden;
     }
     .head {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 11px;
-      color: #6d8099;
+      padding: 12px 18px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.06);
     }
-    .head .target {
-      color: #7dffb2;
-      font-weight: 600;
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 800; letter-spacing: -0.01em;
+      color: #0f172a;
     }
-    .body {
-      flex: 1;
-      font-size: 12px;
-      line-height: 1.5;
-      color: #b8c5d6;
-      background: #0c1016;
-      border-radius: 8px;
-      padding: 8px 10px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      word-break: break-all;
+    .brand-mark {
+      width: 26px; height: 26px; border-radius: 8px;
+      display: grid; place-items: center;
+      background: #e0f2fe; color: #0284c7; font-size: 14px;
     }
-    .actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
+    .target-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f1f5f9; color: #475569;
+      border-radius: 999px; padding: 4px 12px;
+      font-size: 12px; font-weight: 600;
     }
-    button {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.1s, opacity 0.1s;
+    .target-pill strong { color: #0f172a; font-weight: 700; }
+    .close {
+      background: transparent; border: none;
+      width: 28px; height: 28px; border-radius: 8px;
+      color: #94a3b8; cursor: pointer; font-size: 16px;
+    }
+    .close:hover { background: #f1f5f9; color: #0f172a; }
+
+    .modes {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 18px; border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      font-size: 12px; color: #64748b;
+      background: #fafbfc;
+    }
+    .modes-label { font-weight: 600; color: #475569; margin-right: 4px; }
+    .mode {
+      padding: 5px 12px; border-radius: 7px;
+      border: 1px solid transparent; background: transparent;
+      color: #64748b; font-size: 13px; font-weight: 600; cursor: pointer;
       font-family: inherit;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
-    button:active { transform: scale(0.97); }
-    .yes {
-      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-      color: #062012;
+    .mode:hover { background: #eef2f7; color: #0f172a; }
+    .mode.active {
+      background: #e0f2fe; border-color: #bae6fd; color: #0369a1;
     }
-    .no {
-      background: rgba(255,255,255,0.08);
-      color: #c8d4e0;
+    .modes-hint { margin-left: auto; font-size: 11px; color: #94a3b8; }
+
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 0;
     }
-    .toast {
-      position: absolute;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(20, 26, 34, 0.94);
-      backdrop-filter: blur(8px);
-      color: #fff;
-      font-size: 14px;
-      line-height: 1.55;
-      text-align: left;
-      padding: 22px;
-      border-radius: 14px;
+    .col {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
     }
-    .toast.show { display: flex; }
-    .toast .ok { color: #7dffb2; margin-right: 6px; font-weight: 700; }
+    .col + .col { border-left: 1px solid rgba(15, 23, 42, 0.06); }
+    .col-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: #64748b;
+      background: #fafbfc;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+    }
+    .col-head .tag {
+      font-size: 11px; font-weight: 600; letter-spacing: 0;
+      color: #94a3b8; text-transform: none;
+    }
+    .col-body {
+      padding: 14px 16px;
+      font-size: 13.5px; line-height: 1.62;
+      color: #1f2937;
+      overflow: auto;
+      -webkit-user-select: text; user-select: text;
+      word-break: break-word;
+      background: #ffffff;
+    }
+    .col-body.left {
+      background: #f8fafc;
+      color: #475569;
+      white-space: pre-wrap;
+    }
+    .col-body.right { background: #ffffff; color: #1f2937; }
+
+    .col-body.right h1, .col-body.right h2, .col-body.right h3 {
+      font-weight: 800;
+      margin: 10px 0 4px 0;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+    .col-body.right h1 { font-size: 17px; }
+    .col-body.right h2 { font-size: 15px; color: #0369a1; }
+    .col-body.right h3 { font-size: 13.5px; color: #0284c7; }
+    .col-body.right h2:first-child,
+    .col-body.right h3:first-child,
+    .col-body.right p:first-child,
+    .col-body.right ul:first-child,
+    .col-body.right ol:first-child { margin-top: 0; }
+    .col-body.right p { margin: 5px 0; }
+    .col-body.right strong { color: #b45309; font-weight: 700; }
+    .col-body.right code {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 1px 6px; border-radius: 4px;
+      color: #be185d;
+    }
+    .col-body.right ul, .col-body.right ol { margin: 5px 0 5px 20px; padding: 0; }
+    .col-body.right li { margin: 2px 0; }
+    .col-body.right .err {
+      color: #b91c1c; font-size: 13px; line-height: 1.6;
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 8px; padding: 10px 12px;
+      white-space: pre-wrap;
+    }
+
+    .loading {
+      display: flex; align-items: center; gap: 10px;
+      color: #94a3b8; font-size: 13px;
+    }
+    .spin {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #e0f2fe; border-top-color: #0284c7;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .err {
+      color: #b91c1c; font-size: 13px; line-height: 1.6;
+      background: #fef2f2; border: 1px solid #fecaca;
+      border-radius: 8px; padding: 10px 12px;
+    }
+
+    .footer {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(15, 23, 42, 0.06);
+      background: #ffffff;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid #cbd5e1; background: #ffffff;
+      color: #334155; font-size: 13px; font-weight: 700;
+      padding: 8px 14px; border-radius: 9px; cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s, border-color 0.12s, transform 0.08s;
+    }
+    .btn:hover { background: #f8fafc; }
+    .btn:active { transform: scale(0.99); }
+    .btn.primary {
+      background: #0284c7; border-color: #0284c7; color: #ffffff;
+    }
+    .btn.primary:hover { background: #0369a1; }
+    .btn.ghost { border-color: transparent; background: transparent; color: #94a3b8; }
+    .btn.ghost:hover { color: #475569; background: #f1f5f9; }
+    .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+    .grow { flex: 1; }
     .kbd {
       display: inline-block;
       font-family: ui-monospace, Menlo, monospace;
-      font-size: 10px;
-      padding: 1px 5px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 3px;
-      margin-left: 6px;
-      color: #8b9cb3;
+      font-size: 11px;
+      padding: 2px 6px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 5px;
+      color: #f1f5f9;
+      font-weight: 700;
+      margin-left: 4px;
     }
-    .loading {
-      text-align: center;
-      color: #6d8099;
-      padding: 30px;
-      font-size: 12px;
+    .btn:not(.primary) .kbd {
+      background: #f1f5f9; border-color: #e2e8f0; color: #64748b;
     }
+
+    .toast {
+      position: absolute; inset: 0;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      color: #0f172a; font-size: 14px; line-height: 1.6;
+      text-align: center; padding: 24px;
+      gap: 8px;
+    }
+    .toast.show { display: flex; }
+    .toast .ok { color: #16a34a; font-size: 28px; }
+    .toast .msg { max-width: 480px; color: #334155; font-size: 13.5px; }
+    .toast.err .ok { color: #dc2626; }
   </style>
 </head>
 <body>
-  <div class="panel">
+  <div class="panel" id="panel">
     <div class="head">
-      <span><span id="mode">…</span> · <span id="len">0</span> 字</span>
-      <span class="target" id="target">…</span>
+      <div class="brand"><span class="brand-mark">📥</span><span>Skillless</span></div>
+      <span class="target-pill">写入 <strong id="target">…</strong> · <span id="len">0</span> 字</span>
+      <button class="close" id="btn-close" title="取消 (Esc)">✕</button>
     </div>
-    <div class="body" id="preview">加载中…</div>
-    <div class="actions">
-      <button class="no" id="btn-no">❌ 取消<span class="kbd">Esc</span></button>
-      <button class="yes" id="btn-yes">✅ 归档<span class="kbd">↵</span></button>
+
+    <div class="modes">
+      <span class="modes-label">AI 模式</span>
+      <div id="mode-list" style="display:flex; gap:6px;"></div>
+      <span class="modes-hint">按 1-4 切换 · 重新生成 ⌘R</span>
+    </div>
+
+    <div class="cols">
+      <div class="col">
+        <div class="col-head">原文 <span class="tag" id="left-tag"></span></div>
+        <div class="col-body left" id="left-body">加载中…</div>
+      </div>
+      <div class="col">
+        <div class="col-head">AI 整理 <span class="tag" id="right-tag"></span></div>
+        <div class="col-body right" id="right-body">
+          <div class="loading"><span class="spin"></span>AI 整理中…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button class="btn ghost" id="btn-regen" title="重新生成 (⌘R)">🔄 重新生成</button>
+      <div class="grow"></div>
+      <button class="btn ghost" id="btn-cancel">取消<span class="kbd">esc</span></button>
+      <button class="btn primary" id="btn-yes">写入<span class="kbd">↵</span></button>
     </div>
   </div>
-  <div class="toast" id="toast"></div>
 
+  <div class="toast" id="toast">
+    <div class="ok" id="toast-icon">✓</div>
+    <div class="msg" id="toast-msg">写入成功</div>
+  </div>
+
+  <script src="markdown.js"></script>
   <script>
     (function () {
+      const $ = (id) => document.getElementById(id);
       function api() { return window.pywebview && window.pywebview.api; }
       function waitForApi() {
         return new Promise((r) => {
@@ -138,47 +273,137 @@
         });
       }
 
-      const $ = (id) => document.getElementById(id);
+      const state = {
+        text: "",
+        mode: "polish",
+        refined: "",
+        loading: false,
+        modes: [],
+      };
 
-      function showToast(html, autoClose) {
-        const t = $("toast");
-        t.innerHTML = html;
-        t.classList.add("show");
-        if (autoClose) {
-          setTimeout(() => api().close(), autoClose);
+      function renderModeList() {
+        const wrap = $("mode-list");
+        wrap.innerHTML = "";
+        state.modes.forEach((m, idx) => {
+          const b = document.createElement("button");
+          b.className = "mode" + (m.id === state.mode ? " active" : "");
+          b.textContent = `${idx + 1} ${m.label}`;
+          b.dataset.mode = m.id;
+          b.onclick = () => selectMode(m.id);
+          wrap.appendChild(b);
+        });
+      }
+
+      function setLoading(yes) {
+        state.loading = yes;
+        $("btn-yes").disabled = yes;
+        $("btn-regen").disabled = yes;
+        if (yes) {
+          $("right-body").innerHTML = '<div class="loading"><span class="spin"></span>AI 整理中…</div>';
+          $("right-tag").textContent = "整理中…";
         }
+      }
+
+      function renderRight(body, ok) {
+        if (ok) {
+          $("right-body").innerHTML = window.renderMarkdown(body);
+          $("right-tag").textContent = `${body.length} 字`;
+        } else {
+          $("right-body").innerHTML = `<div class="err">${escapeHtml(body)}</div>
+            <div style="margin-top:10px; color:#94a3b8; font-size:12px;">点 ✓ 仍会直接写入原文。</div>`;
+          $("right-tag").textContent = "失败";
+        }
+      }
+
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        }[c]));
+      }
+
+      async function selectMode(mode) {
+        state.mode = mode;
+        state.refined = "";
+        renderModeList();
+        if (mode === "raw") {
+          state.refined = state.text;
+          $("right-body").textContent = state.text;
+          $("right-tag").textContent = `${state.text.length} 字`;
+          return;
+        }
+        await regenerate();
+      }
+
+      async function regenerate() {
+        if (state.loading) return;
+        setLoading(true);
+        const r = await api().request_refined(state.mode);
+        state.refined = r.ok ? r.body : "";
+        renderRight(r.body, r.ok);
+        setLoading(false);
+      }
+
+      function showToast(msg, ok) {
+        const t = $("toast");
+        $("toast-icon").textContent = ok ? "✓" : "✗";
+        $("toast-msg").textContent = msg;
+        t.classList.toggle("err", !ok);
+        t.classList.add("show");
+        if (ok) setTimeout(() => api().close(), 1500);
       }
 
       async function onYes() {
+        if (state.loading) return;
+        const body = state.refined || state.text;
         $("btn-yes").disabled = true;
-        $("btn-no").disabled = true;
-        showToast(`<span class="ok">✓</span> 正在写入…`);
-        const r = await api().confirm();
-        if (r.ok) {
-          showToast(`<div><span class="ok">✓</span>${r.message || ("已经补充到 " + r.target + "，放在了文件末尾。")}</div>`, 1800);
-        } else {
-          showToast(`<span style="color:#ff9eb0">✗</span> ${r.error || "失败"}`, 2500);
-        }
+        const r = await api().confirm(body, state.mode);
+        if (r.ok) showToast(r.message || "已写入", true);
+        else { showToast(r.error || "写入失败", false); $("btn-yes").disabled = false; }
       }
 
-      async function onNo() {
+      async function onCancel() {
         await api().cancel();
         await api().close();
       }
 
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") onYes();
-        if (e.key === "Escape") onNo();
+        if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        else if (e.key === "Enter") { e.preventDefault(); onYes(); }
+        else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
+          e.preventDefault(); regenerate();
+        }
+        else if (["1", "2", "3", "4"].includes(e.key)) {
+          const idx = parseInt(e.key, 10) - 1;
+          if (state.modes[idx]) { e.preventDefault(); selectMode(state.modes[idx].id); }
+        }
       });
+
+      $("btn-yes").onclick = onYes;
+      $("btn-cancel").onclick = onCancel;
+      $("btn-close").onclick = onCancel;
+      $("btn-regen").onclick = regenerate;
 
       waitForApi().then(async (a) => {
         const p = await a.get_payload();
-        $("mode").textContent = p.mode_label;
+        state.text = p.text || "";
+        state.mode = p.mode || "polish";
+        state.modes = p.modes || [];
         $("len").textContent = p.len;
-        $("target").textContent = "→ " + p.target_label;
-        $("preview").textContent = p.preview || "(空)";
-        $("btn-yes").onclick = onYes;
-        $("btn-no").onclick = onNo;
+        $("target").textContent = p.target_label;
+        $("left-body").textContent = state.text || "(空)";
+        $("left-tag").textContent = `${state.text.length} 字`;
+        renderModeList();
+        if (state.mode === "raw") {
+          state.refined = state.text;
+          $("right-body").textContent = state.text;
+          $("right-tag").textContent = `${state.text.length} 字`;
+        } else if (p.preset_refined) {
+          state.refined = p.preset_refined;
+          $("right-body").innerHTML = window.renderMarkdown(p.preset_refined);
+          $("right-tag").textContent = `${p.preset_refined.length} 字（来自胶囊）`;
+        } else {
+          await regenerate();
+        }
       });
     })();
   </script>

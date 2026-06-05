@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Capsule</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, "PingFang SC", "SF Pro Text", sans-serif;
+      background: transparent;
+      color: #f1f5f9;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .root { width: 100%; height: 100%; padding: 6px; }
+    .capsule {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: rgba(17, 24, 39, 0.94);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ===== 状态 1: Thinking ===== */
+    .thinking {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 100%;
+      padding: 0 18px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+    .spin {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #38bdf8;
+      animation: spin 0.8s linear infinite;
+      flex: 0 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== 状态 2: Result ===== */
+    .result { display: none; flex-direction: column; height: 100%; }
+    .result.show { display: flex; }
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px 4px 16px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .head .icon {
+      width: 18px; height: 18px; border-radius: 999px;
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      font-size: 11px;
+      display: grid; place-items: center;
+      flex: 0 0 auto;
+    }
+    .head .title { font-weight: 700; color: #f1f5f9; }
+    .head .target-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: auto;
+      max-width: 200px;
+      min-width: 0;
+    }
+    .head .target {
+      font-size: 11px; color: #64748b;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 0;
+    }
+    .head .target-switch {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      width: 16px;
+      height: 18px;
+      padding: 0;
+      border-radius: 4px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      font-family: inherit;
+      flex: 0 0 auto;
+    }
+    .head .target-switch:hover { color: #f1f5f9; background: rgba(255, 255, 255, 0.08); }
+    .head .target-switch:active { transform: scale(0.92); }
+    .head .close {
+      background: transparent; border: none; color: #64748b;
+      width: 20px; height: 20px; border-radius: 6px;
+      font-size: 12px; cursor: pointer;
+    }
+    .head .close:hover { background: rgba(255, 255, 255, 0.08); color: #f1f5f9; }
+    .body {
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 8px 16px 4px 16px;
+      font-size: 13.5px; line-height: 1.6;
+      color: #e2e8f0;
+      overflow: auto;
+      word-break: break-word;
+      -webkit-user-select: text; user-select: text;
+    }
+    .body.err { color: #fca5a5; font-size: 12.5px; white-space: pre-wrap; }
+    .body h1, .body h2, .body h3 {
+      color: #f1f5f9;
+      font-weight: 800;
+      margin: 8px 0 4px 0;
+      line-height: 1.35;
+    }
+    .body h1 { font-size: 16px; }
+    .body h2 { font-size: 14.5px; color: #38bdf8; }
+    .body h3 { font-size: 13px; color: #93c5fd; }
+    .body h2:first-child, .body h3:first-child, .body p:first-child, .body ul:first-child, .body ol:first-child { margin-top: 0; }
+    .body p { margin: 4px 0; }
+    .body strong { color: #fde047; font-weight: 700; }
+    .body code {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 5px; border-radius: 4px;
+      color: #fbcfe8;
+    }
+    .body ul, .body ol { margin: 4px 0 4px 18px; padding: 0; }
+    .body li { margin: 2px 0; }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px 12px 16px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      color: #f1f5f9;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s, transform 0.08s, border-color 0.12s;
+    }
+    .btn:hover { background: rgba(255, 255, 255, 0.12); }
+    .btn:active { transform: scale(0.96); }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary {
+      background: #f1f5f9;
+      border-color: #f1f5f9;
+      color: #0f172a;
+    }
+    .btn.primary:hover { background: #ffffff; }
+    .btn.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: #94a3b8;
+    }
+    .btn.ghost:hover { color: #f1f5f9; background: rgba(255, 255, 255, 0.06); }
+    .spacer { flex: 1; }
+
+    /* ===== 状态 3: Feedback ===== */
+    .feedback {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      height: 100%;
+      padding: 0 20px;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #f1f5f9;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .feedback.show { display: flex; }
+    .feedback .ok {
+      width: 22px; height: 22px; border-radius: 999px;
+      background: #16a34a; color: #ffffff;
+      display: grid; place-items: center;
+      font-size: 13px; font-weight: 800;
+      flex: 0 0 auto;
+    }
+    .feedback #fb-text {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .feedback.err .ok { background: #dc2626; }
+
+    /* 8 个拖拽 handle：4 边 + 4 角，仅 result 状态显示 */
+    .rh {
+      position: absolute;
+      background: transparent;
+      z-index: 10;
+      display: none;
+      transition: background 0.15s;
+    }
+    .rh.show { display: block; }
+    .rh:hover { background: rgba(255, 255, 255, 0.06); }
+
+    /* 边：留出 12px 给角落 */
+    .rh-top    { top: 0;    left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
+    .rh-bottom { bottom: 0; left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
+    .rh-left   { left: 0;   top: 12px;  bottom: 12px; width: 6px; cursor: ew-resize; }
+    .rh-right  { right: 0;  top: 12px;  bottom: 12px; width: 6px; cursor: ew-resize; }
+
+    /* 角：12x12 */
+    .rh-tl { top: 0;    left: 0;    width: 12px; height: 12px; cursor: nwse-resize; border-top-left-radius: 18px; }
+    .rh-tr { top: 0;    right: 0;   width: 12px; height: 12px; cursor: nesw-resize; border-top-right-radius: 18px; }
+    .rh-bl { bottom: 0; left: 0;    width: 12px; height: 12px; cursor: nesw-resize; border-bottom-left-radius: 18px; }
+    .rh-br { bottom: 0; right: 0;   width: 12px; height: 12px; cursor: nwse-resize; border-bottom-right-radius: 18px; }
+
+    /* 右下角保留一个淡色斜纹做视觉提示 */
+    .rh-br::before {
+      content: "";
+      position: absolute;
+      right: 2px;
+      bottom: 2px;
+      width: 8px;
+      height: 8px;
+      opacity: 0.5;
+      background:
+        linear-gradient(135deg, transparent 0%, transparent 33%, #94a3b8 33%, #94a3b8 44%, transparent 44%, transparent 66%, #94a3b8 66%, #94a3b8 77%, transparent 77%);
+      pointer-events: none;
+    }
+
+    /* ============= 白色主题（body.theme-white 覆盖） ============= */
+    body.theme-white { color: #1f2937; }
+    body.theme-white .capsule {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    body.theme-white .thinking { color: #475569; }
+    body.theme-white .spin {
+      border-color: #e5e7eb;
+      border-top-color: #0ea5e9;
+    }
+
+    body.theme-white .head { color: #475569; }
+    body.theme-white .head .icon {
+      background: #e0f2fe;
+      color: #0284c7;
+    }
+    body.theme-white .head .title { color: #0f172a; }
+    body.theme-white .head .target-wrap {
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 3px 4px 3px 8px;
+    }
+    body.theme-white .head .target { color: #64748b; }
+    body.theme-white .head .target-switch { color: #94a3b8; }
+    body.theme-white .head .target-switch:hover { color: #0f172a; background: #f1f5f9; }
+    body.theme-white .head .close { color: #94a3b8; }
+    body.theme-white .head .close:hover { background: #f1f5f9; color: #0f172a; }
+
+    body.theme-white .body { color: #334155; }
+    body.theme-white .body.err { color: #b91c1c; }
+    body.theme-white .body h1,
+    body.theme-white .body h2,
+    body.theme-white .body h3 { color: #0f172a; }
+    body.theme-white .body h2 { color: #0284c7; }
+    body.theme-white .body h3 { color: #0369a1; }
+    body.theme-white .body strong { color: #b45309; }
+    body.theme-white .body code {
+      background: #f1f5f9;
+      color: #be185d;
+    }
+
+    body.theme-white .btn {
+      background: #ffffff;
+      border-color: #e5e7eb;
+      color: #1f2937;
+    }
+    body.theme-white .btn:hover { background: #f8fafc; }
+    body.theme-white .btn.primary {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #ffffff;
+    }
+    body.theme-white .btn.primary:hover { background: #1f2937; }
+    body.theme-white .btn.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: #64748b;
+    }
+    body.theme-white .btn.ghost:hover { color: #0f172a; background: #f1f5f9; }
+
+    body.theme-white .feedback { color: #0f172a; }
+    body.theme-white .rh:hover { background: rgba(15, 23, 42, 0.05); }
+    body.theme-white .rh-br::before {
+      background:
+        linear-gradient(135deg, transparent 0%, transparent 33%, #cbd5e1 33%, #cbd5e1 44%, transparent 44%, transparent 66%, #cbd5e1 66%, #cbd5e1 77%, transparent 77%);
+    }
+  </style>
+</head>
+<body>
+  <div class="root">
+    <div class="capsule" id="capsule">
+      <!-- 状态 1: Thinking -->
+      <div class="thinking" id="thinking">
+        <span class="spin"></span>
+        <span id="thinking-text">Thinking…</span>
+      </div>
+
+      <!-- 状态 2: Result -->
+      <div class="result" id="result">
+        <div class="head">
+          <span class="icon">i</span>
+          <span class="title" id="result-title">AI 已精简</span>
+          <span class="target-wrap">
+            <span class="target" id="result-target"></span>
+            <button class="target-switch" id="btn-switch-target" title="切换归档目标">›</button>
+          </span>
+          <button class="close" id="btn-close" title="关闭 (Esc)">✕</button>
+        </div>
+        <div class="body" id="result-body"></div>
+        <div class="actions">
+          <button class="btn" id="btn-refine" title="重新让 AI 精简 (⌘R)">↻ 精简</button>
+          <button class="btn" id="btn-copy" title="把精简结果回写剪贴板 (⌘C)">⌘ 复制</button>
+          <span class="spacer"></span>
+          <button class="btn primary" id="btn-archive" title="写入默认文档 (↵)">📥 归档</button>
+        </div>
+      </div>
+
+      <!-- 状态 3: Feedback -->
+      <div class="feedback" id="feedback">
+        <span class="ok" id="fb-icon">✓</span>
+        <span id="fb-text">已完成</span>
+      </div>
+
+      <!-- 8 个 resize handle：4 边 + 4 角 -->
+      <div class="rh rh-top"    data-rh="top"></div>
+      <div class="rh rh-bottom" data-rh="bottom"></div>
+      <div class="rh rh-left"   data-rh="left"></div>
+      <div class="rh rh-right"  data-rh="right"></div>
+      <div class="rh rh-tl"     data-rh="tl"></div>
+      <div class="rh rh-tr"     data-rh="tr"></div>
+      <div class="rh rh-bl"     data-rh="bl"></div>
+      <div class="rh rh-br"     data-rh="br" title="拖拽调整大小"></div>
+    </div>
+  </div>
+
+  <script src="markdown.js"></script>
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      function api() { return window.pywebview && window.pywebview.api; }
+      function waitForApi() {
+        return new Promise((r) => {
+          const tick = () => (api() ? r(api()) : setTimeout(tick, 50));
+          tick();
+        });
+      }
+
+      const SIZE = {
+        thinking: [200, 60],
+        result:   [520, 180],
+        feedback: [380, 60],
+      };
+
+      const state = {
+        text: "",
+        mode: "polish",
+        refined: "",
+        target_label: "",
+      };
+
+      // 用户是否已经主动拖过任意 resize handle：true 后 autofit 不再改窗口尺寸
+      let userResized = false;
+
+      function show(which) {
+        $("thinking").style.display = which === "thinking" ? "flex" : "none";
+        $("result").classList.toggle("show", which === "result");
+        $("feedback").classList.toggle("show", which === "feedback");
+        const showHandles = which === "result";
+        document.querySelectorAll(".rh").forEach((el) => el.classList.toggle("show", showHandles));
+        const [w, h] = SIZE[which] || SIZE.result;
+        api().resize(w, h);
+      }
+
+      // ============ autofit：根据实际内容收/拉窗口高度 ============
+      function autofitResult() {
+        if (userResized) return;
+        const result = $("result");
+        if (!result.classList.contains("show")) return;
+        const head    = result.querySelector(".head");
+        const actions = result.querySelector(".actions");
+        const body    = $("result-body");
+        const headH    = head ? head.offsetHeight : 0;
+        const actionsH = actions ? actions.offsetHeight : 0;
+        // body.scrollHeight = 内容自然高度（已含 body 自身 padding）
+        const bodyContentH = body ? body.scrollHeight : 0;
+        const ROOT_PAD = 12;        // .root padding 6 * 2
+        const BORDER   = 2;          // .capsule 1px 边框 * 2
+        const MAX_BODY_VISIBLE = 420;  // body 太长时窗口最高就到这
+        const visibleBodyH = Math.min(bodyContentH, MAX_BODY_VISIBLE);
+        let total = headH + visibleBodyH + actionsH + ROOT_PAD + BORDER + 4;
+        total = Math.max(140, Math.min(640, total));
+        const w = SIZE.result[0];
+        api().resize_to(w, total);
+        SIZE.result = [w, total];
+      }
+
+      // ============ 拖拽 resize（4 边 + 4 角）============
+      (function setupResize() {
+        // 每个 handle 影响窗口的哪些边
+        const HANDLES = {
+          top:    { top: true,  bottom: false, left: false, right: false },
+          bottom: { top: false, bottom: true,  left: false, right: false },
+          left:   { top: false, bottom: false, left: true,  right: false },
+          right:  { top: false, bottom: false, left: false, right: true  },
+          tl:     { top: true,  bottom: false, left: true,  right: false },
+          tr:     { top: true,  bottom: false, left: false, right: true  },
+          bl:     { top: false, bottom: true,  left: true,  right: false },
+          br:     { top: false, bottom: true,  left: false, right: true  },
+        };
+        const MIN_W = 280, MIN_H = 120;
+
+        let cfg = null;
+        let startMx = 0, startMy = 0;
+        let startWinX = 0, startWinY = 0;
+        let startW = 0, startH = 0;
+
+        // 节流：mousemove 高频触发，pywebview RPC 跟不上会闪烁
+        // 用时间戳节流到 ~25 fps + 末尾 flush 保证最终位置准确
+        const RPC_MIN_MS = 40;
+        let lastSent = 0;
+        let pendingTarget = null;
+        let pendingTimer = null;
+
+        function flushRpc() {
+          if (!pendingTarget) return;
+          const t = pendingTarget;
+          pendingTarget = null;
+          lastSent = Date.now();
+          if (t.movesPos) {
+            api().move_and_resize(t.x, t.y, t.w, t.h);
+          } else {
+            api().resize_to(t.w, t.h);
+          }
+          SIZE.result = [t.w, t.h];
+        }
+
+        function schedule(target) {
+          pendingTarget = target;
+          const wait = RPC_MIN_MS - (Date.now() - lastSent);
+          if (wait <= 0) {
+            if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+            flushRpc();
+          } else if (!pendingTimer) {
+            pendingTimer = setTimeout(() => {
+              pendingTimer = null;
+              flushRpc();
+            }, wait);
+          }
+        }
+
+        async function onDown(e, c) {
+          cfg = c;
+          startMx = e.screenX;
+          startMy = e.screenY;
+          startW = SIZE.result[0];
+          startH = SIZE.result[1];
+          userResized = true;
+          e.preventDefault();
+          e.stopPropagation();
+
+          // 关键：用 Python 端 AppKit 拿精确的窗口左上角屏幕坐标
+          // 不要用 `e.screenX - e.clientX`：.root padding 会让结果偏 6px → 反复推窗
+          try {
+            const pos = await api().get_position();
+            if (pos && pos.ok) {
+              startWinX = pos.x;
+              startWinY = pos.y;
+              // 同时同步真实尺寸（避免 SIZE.result 与窗口实际不一致）
+              startW = pos.w;
+              startH = pos.h;
+              SIZE.result = [pos.w, pos.h];
+            } else {
+              // fallback：之前那种不可靠的算法
+              startWinX = e.screenX - e.clientX;
+              startWinY = e.screenY - e.clientY;
+            }
+          } catch (err) {
+            startWinX = e.screenX - e.clientX;
+            startWinY = e.screenY - e.clientY;
+          }
+        }
+
+        function onMove(e) {
+          if (!cfg) return;
+          const dx = e.screenX - startMx;
+          const dy = e.screenY - startMy;
+
+          let newX = startWinX, newY = startWinY;
+          let newW = startW,    newH = startH;
+
+          if (cfg.right)  newW = startW + dx;
+          if (cfg.left)   { newW = startW - dx; newX = startWinX + dx; }
+          if (cfg.bottom) newH = startH + dy;
+          if (cfg.top)    { newH = startH - dy; newY = startWinY + dy; }
+
+          // 最小尺寸约束：从左/上缩到底时 x/y 反推，避免位置跳
+          if (newW < MIN_W) {
+            if (cfg.left) newX = startWinX + (startW - MIN_W);
+            newW = MIN_W;
+          }
+          if (newH < MIN_H) {
+            if (cfg.top) newY = startWinY + (startH - MIN_H);
+            newH = MIN_H;
+          }
+
+          schedule({
+            movesPos: cfg.left || cfg.top,
+            x: Math.round(newX),
+            y: Math.round(newY),
+            w: Math.round(newW),
+            h: Math.round(newH),
+          });
+        }
+
+        async function onUp() {
+          if (!cfg) return;
+          cfg = null;
+          document.body.style.cursor = "";
+          // 释放前 flush 最终位置，确保松手时窗口对齐到最后鼠标位置
+          if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+          flushRpc();
+          try { await api().save_size(); } catch (e) { /* ignore */ }
+        }
+
+        document.querySelectorAll(".rh").forEach((el) => {
+          el.addEventListener("mousedown", (e) => {
+            const name = el.getAttribute("data-rh");
+            const c = HANDLES[name];
+            if (!c) return;
+            document.body.style.cursor = window.getComputedStyle(el).cursor || "";
+            onDown(e, c);
+          });
+        });
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      })();
+
+      function setResult(body, ok, modeLabel) {
+        $("result-title").textContent = ok ? `AI · ${modeLabel}` : "AI 精简失败";
+        $("result-body").classList.toggle("err", !ok);
+        if (ok) {
+          $("result-body").innerHTML = window.renderMarkdown(body || "(空)");
+        } else {
+          $("result-body").textContent = body || "(空)";
+        }
+        $("result-target").textContent = `→ ${state.target_label}`;
+      }
+
+      function showFeedback(msg, ok, autoCloseMs) {
+        $("fb-icon").textContent = ok ? "✓" : "✗";
+        $("fb-text").textContent = msg;
+        $("feedback").classList.toggle("err", !ok);
+        show("feedback");
+        if (autoCloseMs) {
+          setTimeout(() => api().close(), autoCloseMs);
+        }
+      }
+
+      let pollTimer = null;
+      let thinkingTimer = null;
+      function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+      }
+
+      // thinking 渐进文案：让等待不无聊
+      function startThinkingTicker(modeId) {
+        const labelMap = {
+          polish: ["AI 正在润色…", "整理段落…", "梳理重点…"],
+          structure: ["分析信噪比…", "提取关键信息…", "按主题归类…"],
+          i18n: ["识别语言…", "翻译中…", "调整表达…"],
+          raw: ["准备中…"],
+        };
+        const phases = labelMap[modeId] || labelMap.polish;
+        const t0 = Date.now();
+        let i = 0;
+        const tick = () => {
+          const sec = ((Date.now() - t0) / 1000).toFixed(1);
+          const phase = phases[Math.min(i, phases.length - 1)];
+          $("thinking-text").textContent = `${phase}  ${sec}s`;
+        };
+        tick();
+        thinkingTimer = setInterval(() => {
+          // 每 1.6s 推进一个 phase（最多到末尾）
+          if ((Date.now() - t0) > (i + 1) * 1600 && i < phases.length - 1) i++;
+          tick();
+        }, 100);
+      }
+
+      async function runRefine(mode) {
+        stopPolling();
+        const m = mode || state.mode;
+        show("thinking");
+        startThinkingTicker(m);
+        await api().start_refine(m);
+
+        let switchedToResult = false;
+        let lastSeq = 0;
+        pollTimer = setInterval(async () => {
+          const p = await api().get_progress();
+          if (!p) return;
+          if (p.seq === lastSeq && !p.done) return;
+          lastSeq = p.seq;
+
+          if (!switchedToResult && (p.text || p.done)) {
+            switchedToResult = true;
+            if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+            show("result");
+          }
+          if (switchedToResult) {
+            setResult(p.text || "", p.ok !== false, modeLabelOf(p.mode || m));
+          }
+
+          if (p.done) {
+            stopPolling();
+            state.refined = p.ok === false ? "" : (p.text || "");
+            // 等一帧让 markdown 渲染完，再 autofit
+            requestAnimationFrame(() => requestAnimationFrame(autofitResult));
+          }
+        }, 80);
+      }
+
+      function modeLabelOf(id) {
+        const map = { polish: "润色", structure: "结构化", i18n: "翻译", raw: "原文" };
+        return map[id] || id;
+      }
+
+      async function onArchive() {
+        $("btn-archive").disabled = true;
+        const r = await api().archive();
+        if (r.ok) showFeedback(`已归档 → ${state.target_label}`, true, 1400);
+        else { showFeedback(r.error || "归档失败", false, 2000); }
+      }
+
+      async function onCopy() {
+        const r = await api().copy_result();
+        if (r.ok) showFeedback(`已复制 ${r.len} 字`, true, 1200);
+        else showFeedback(r.error || "复制失败", false, 2000);
+      }
+
+      async function onClose() {
+        try { await api().close(); } catch (e) { /* close 强退后 JS 会拿不到响应 */ }
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { e.preventDefault(); onClose(); }
+        else if (e.key === "Enter") { e.preventDefault(); onArchive(); }
+        else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
+          e.preventDefault(); runRefine();
+        }
+        else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+          e.preventDefault(); onCopy();
+        }
+      });
+
+      $("btn-archive").onclick = onArchive;
+      $("btn-copy").onclick = onCopy;
+      $("btn-refine").onclick = () => runRefine();
+      $("btn-close").onclick = onClose;
+
+      $("btn-switch-target").onclick = async () => {
+        const r = await api().pick_target();
+        if (r && r.ok) {
+          state.target_label = r.target_label || r.target;
+          $("result-target").textContent = `→ ${state.target_label}`;
+        } else if (r && r.error) {
+          showFeedback("切换失败：" + r.error, false, 1800);
+        }
+      };
+
+      waitForApi().then(async (a) => {
+        const p = await a.get_payload();
+        state.text = p.text || "";
+        state.mode = p.mode || "polish";
+        state.target_label = p.target_label || "默认文档";
+        if (p.saved_size && p.saved_size.length === 2) {
+          // 只保留用户横向宽度偏好，高度交给 autofit
+          SIZE.result = [p.saved_size[0], 180];
+        }
+        // 主题：dark（默认）/ white
+        document.body.classList.toggle("theme-white", (p.theme || "dark") === "white");
+        $("thinking-text").textContent = "Thinking…";
+        if (state.mode === "raw") {
+          state.refined = state.text;
+          setResult(state.text, true, "原文");
+          show("result");
+          requestAnimationFrame(() => requestAnimationFrame(autofitResult));
+        } else {
+          await runRefine(state.mode);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

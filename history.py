@@ -205,22 +205,68 @@ def record_image(data: bytes, *, source: str = "clip") -> dict[str, Any]:
     return record
 
 
-def list_records(*, limit: int = 100, kind: str | None = None) -> list[dict[str, Any]]:
+# mtime-based cache：避免 dashboard 反复全量读 + parse jsonl
+_records_cache: dict[str, Any] = {"mtime_ns": -1, "size": -1, "records": []}
+
+
+def _read_all_records() -> list[dict[str, Any]]:
+    """返回按时间正序的所有记录，命中 mtime 缓存时直接复用。"""
     if not CLIPS_PATH.exists():
         return []
-    lines = CLIPS_PATH.read_text(encoding="utf-8").splitlines()
+    try:
+        st = CLIPS_PATH.stat()
+    except FileNotFoundError:
+        return []
+    if (
+        _records_cache["mtime_ns"] == st.st_mtime_ns
+        and _records_cache["size"] == st.st_size
+    ):
+        return _records_cache["records"]
+
     out: list[dict[str, Any]] = []
-    for ln in reversed(lines):
-        try:
-            rec = json.loads(ln)
-        except Exception:
-            continue
+    try:
+        with CLIPS_PATH.open("r", encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    out.append(json.loads(ln))
+                except Exception:
+                    continue
+    except Exception:
+        return _records_cache["records"]
+
+    _records_cache["mtime_ns"] = st.st_mtime_ns
+    _records_cache["size"] = st.st_size
+    _records_cache["records"] = out
+    return out
+
+
+def list_records(
+    *, limit: int = 100, kind: str | None = None, offset: int = 0
+) -> list[dict[str, Any]]:
+    """按时间倒序返回；支持分页 (offset, limit)。"""
+    recs = _read_all_records()
+    out: list[dict[str, Any]] = []
+    skipped = 0
+    for rec in reversed(recs):
         if kind and rec.get("type") != kind:
+            continue
+        if skipped < offset:
+            skipped += 1
             continue
         out.append(rec)
         if len(out) >= limit:
             break
     return out
+
+
+def count_records(kind: str | None = None) -> int:
+    recs = _read_all_records()
+    if not kind:
+        return len(recs)
+    return sum(1 for r in recs if r.get("type") == kind)
 
 
 def get_last_record() -> dict[str, Any] | None:
