@@ -15,6 +15,9 @@ MODE_ARGS=()
 if [ "${ARCHIVER_MODE:-}" = "raw" ]; then
   MODE_ARGS=(--mode raw)
 fi
+if [ -n "${ARCHIVER_TARGET:-}" ]; then
+  MODE_ARGS+=(--target "$ARCHIVER_TARGET")
+fi
 
 # 加载 .env（如果存在）
 if [ -f "$DIR/.env" ]; then

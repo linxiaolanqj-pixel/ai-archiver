@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 归档器 · 前后对比</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      background: #0f1419;
+      color: #e7ecf3;
+      min-height: 100vh;
+      padding: 32px 24px 48px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .sub {
+      text-align: center;
+      color: #8b9cb3;
+      margin-bottom: 32px;
+      font-size: 15px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      border-radius: 16px;
+      padding: 24px;
+      min-height: 420px;
+      position: relative;
+      overflow: hidden;
+    }
+    .old {
+      background: linear-gradient(145deg, #2a2228 0%, #1a1518 100%);
+      border: 1px solid #4a3540;
+    }
+    .new {
+      background: linear-gradient(145deg, #152a22 0%, #0f1f18 100%);
+      border: 1px solid #2d6b4f;
+      animation: glow 2.5s ease-in-out infinite;
+    }
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 0 rgba(46, 213, 115, 0); }
+      50% { box-shadow: 0 0 40px rgba(46, 213, 115, 0.15); }
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    .old .badge { background: #5c3d48; color: #ffc8d4; }
+    .new .badge { background: #1e5c40; color: #7dffb2; }
+    h2 { font-size: 20px; margin-bottom: 20px; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+      opacity: 0;
+      transform: translateX(-8px);
+      animation: slideIn 0.5s forwards;
+    }
+    .new .step { transform: translateX(8px); }
+    .old .step:nth-child(2) { animation-delay: 0.1s; }
+    .old .step:nth-child(3) { animation-delay: 0.2s; }
+    .old .step:nth-child(4) { animation-delay: 0.3s; }
+    .old .step:nth-child(5) { animation-delay: 0.4s; }
+    .old .step:nth-child(6) { animation-delay: 0.5s; }
+    .old .step:nth-child(7) { animation-delay: 0.6s; }
+    .new .step:nth-child(2) { animation-delay: 0.15s; }
+    .new .step:nth-child(3) { animation-delay: 0.3s; }
+    .new .step:nth-child(4) { animation-delay: 0.45s; }
+    @keyframes slideIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .old .num { background: #3d2a32; color: #ff9eb0; }
+    .new .num { background: #1a4d35; color: #5dffa0; }
+    .txt { font-size: 15px; line-height: 1.5; color: #c8d4e0; }
+    .new .txt strong { color: #7dffb2; }
+    .arrow {
+      text-align: center;
+      font-size: 36px;
+      color: #3dd68c;
+      margin: 24px 0 8px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+    .foot {
+      text-align: center;
+      margin-top: 28px;
+      color: #6d8099;
+      font-size: 14px;
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🦞 复制 → 归档，少掉 7 步</h1>
+  <p class="sub">左边是你现在的痛苦；右边是 AI 归档器之后。看完回到 Cursor 点「继续」。</p>
+
+  <div class="grid">
+    <div class="card old">
+      <span class="badge">老版本 · 7 步</span>
+      <h2>😵 每次都要折腾</h2>
+      <div class="step"><span class="num">1</span><span class="txt">复制群聊 / 会议内容</span></div>
+      <div class="step"><span class="num">2</span><span class="txt">打开龙虾 / Cursor</span></div>
+      <div class="step"><span class="num">3</span><span class="txt">粘贴 + 写 prompt</span></div>
+      <div class="step"><span class="num">4</span><span class="txt">等 AI 输出</span></div>
+      <div class="step"><span class="num">5</span><span class="txt">再复制结果</span></div>
+      <div class="step"><span class="num">6</span><span class="txt">找到 md 文件</span></div>
+      <div class="step"><span class="num">7</span><span class="txt">粘贴进去… 知识库还是空的</span></div>
+    </div>
+
+    <div class="card new">
+      <span class="badge">新版本 · 2 步</span>
+      <h2>✨ 复制就完事</h2>
+      <div class="step"><span class="num">1</span><span class="txt"><strong>Cmd+C</strong> 复制一段文字</span></div>
+      <div class="step"><span class="num">2</span><span class="txt">点菜单 / 弹窗 → 选 md → <strong>自动整理并写入</strong></span></div>
+      <div class="step"><span class="num">🎉</span><span class="txt">Agent 能读到你的项目记忆，回答更具体</span></div>
+    </div>
+  </div>
+
+  <p class="arrow">↓ 接下来只需 1 分钟配置</p>
+  <p class="foot">素材说明：此为内置示意动画。若你需要自定义插画 / Lottie / 录屏，可告诉开发者替换本页。</p>
+</body>
+</html>

@@ -25,8 +25,9 @@ bash install.sh
 
 填 API key（默认走 DeepSeek，最便宜，¥10 能用很久）：
 
+在 https://platform.deepseek.com/api_keys 创建 Key，写入 `.env`：
+
 ```bash
-# 编辑 .env，填入：
 DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
@@ -38,6 +39,29 @@ DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ./menubar.sh start
 ./menubar.sh enable
 ```
+
+首次启动会自动弹出 **内嵌式新客引导**（居中窗口，无需开 Safari）。若你之前装过旧版，请先补依赖：
+
+```bash
+cd ~/tools/ai-archiver
+.venv/bin/pip install -r requirements.txt
+./menubar.sh restart
+```
+
+菜单里也可随时点 **🎓 重新走新客引导**。单独调试引导窗：
+
+```bash
+.venv/bin/python onboarding_window.py --force
+```
+
+**引导窗口没弹出？** 常见原因：引导已标记完成（需加 `--force`），或曾在菜单栏线程里直接调 webview（已改为子进程）。请用：
+
+```bash
+cd ~/tools/ai-archiver
+.venv/bin/python onboarding_window.py --force
+```
+
+终端会显示「正在打开引导窗口…」，关窗后才会回到命令行。
 
 ## 关键设计
 
@@ -57,6 +81,9 @@ DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ai-archiver/
 ├── archiver.py            核心：读输入 → LLM → 结构化 JSON → 追加 .md
 ├── archiver_menubar.py    菜单栏 App
+├── onboarding_window.py   新客引导（pywebview）
+├── onboarding/            引导页（HTML/CSS 动画）
+├── onboarding.py          引导逻辑与演示归档
 ├── run.sh                 命令行/Shortcuts 入口
 ├── menubar.sh             菜单栏 App 控制（start/stop/enable）
 ├── archive_menu.sh        macOS Shortcuts 弹菜单包装

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agent 变聪明 · 前后对比</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      background: #0b1020;
+      color: #e8eef7;
+      padding: 28px 20px 40px;
+    }
+    h1 { text-align: center; font-size: 26px; margin-bottom: 28px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .panel {
+      border-radius: 14px;
+      padding: 20px;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+    .before {
+      background: #1c1f2e;
+      border: 1px solid #3d4258;
+    }
+    .after {
+      background: #12261c;
+      border: 1px solid #2f7a52;
+    }
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      opacity: 0.8;
+    }
+    .q {
+      background: rgba(255,255,255,0.06);
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+    .a { color: #b8c5d6; white-space: pre-wrap; }
+    .after .a { color: #b8f0c8; }
+    .after .a li { margin-left: 18px; margin-bottom: 6px; }
+    .foot {
+      text-align: center;
+      margin-top: 24px;
+      color: #6a7d96;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧠 同一个问题，Agent 差在哪？</h1>
+  <div class="grid">
+    <div class="panel before">
+      <div class="label">❌ 没有归档 / 知识库是空的</div>
+      <div class="q">你：顺手买 v2 上线要注意什么？</div>
+      <div class="a">Agent：一般需要关注灰度发布节奏、监控核心指标、准备好回滚方案、协调研发与测试……
+
+（泛泛而谈，记不住你会议里的数字和人名。）</div>
+    </div>
+    <div class="panel after">
+      <div class="label">✅ 有 Markdown 知识库（Cursor / 龙虾 能读到）</div>
+      <div class="q">你：顺手买 v2 上线要注意什么？</div>
+      <div class="a">Agent：根据你刚归档的记录：
+· v2 下周三灰度 30%
+· KPI 加购转化 3% → 5%
+· @李四 周五前补埋点
+· 新人券分歧：王总 vs 李总，下周复盘
+
+（具体、可执行，像带了项目秘书 🦞）</div>
+    </div>
+  </div>
+  <p class="foot">把知识库文件夹加进 Cursor 工作区即可。看完回到引导点「继续」。</p>
+</body>
+</html>

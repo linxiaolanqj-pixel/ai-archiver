@@ -259,15 +259,127 @@ def _write_archive_log(kb_root: Path, action: str, summary: str, target_rel: str
 # ----------------------------- 主流程 -----------------------------
 
 def _build_raw_markdown(text: str) -> tuple[str, str]:
-    """原文模式：返回 (summary, markdown_body)。不调 LLM，直接包装。"""
-    ts = _dt.datetime.now().strftime("%H:%M")
-    preview = re.sub(r"\s+", " ", text.strip())[:40]
-    body_lines = [f"### {ts} · 原文记录"]
+    """原文模式：返回 (summary, markdown_body)。可读性更好的版式。"""
+    now = _dt.datetime.now()
+    preview = re.sub(r"\s+", " ", text.strip())[:36]
+    title = preview + ("…" if len(text.strip()) > 36 else "")
+
+    quote_lines = []
     for line in text.strip().splitlines():
-        body_lines.append(line)
-    body = "\n".join(body_lines)
+        quote_lines.append(f"> {line}" if line.strip() else ">")
+
+    body = (
+        f"\n---\n\n"
+        f"> 📌 **归档** · {now.strftime('%Y-%m-%d %H:%M')}\n\n"
+        f"### {title}\n\n"
+        f"**📝 原文**\n\n"
+        + "\n".join(quote_lines)
+        + "\n\n---\n"
+    )
     summary = f"原文已存：{preview}…"
     return summary, body
+
+
+def _get_action_cfg(config: dict[str, Any], action: str) -> dict[str, Any]:
+    actions = config.get("actions", {})
+    if action in actions:
+        return actions[action]
+    # 支持 custom_prompts 里的 id
+    for item in config.get("custom_prompts", []) or []:
+        if item.get("id") == action:
+            return {
+                "label": item.get("label", action),
+                "target": item["target"],
+                "prompt": item["prompt"],
+                "section": item.get("section", "## {date}"),
+            }
+    sys.exit(f"[archiver] 未知 action: {action}\n可用: {', '.join(actions)}")
+
+
+def prepare_archive(
+    action: str,
+    raw_text: str,
+    *,
+    provider_override: str | None = None,
+    mode: str = "ai",
+    prompt_override: str | None = None,
+    target_override: str | None = None,
+) -> dict[str, Any]:
+    """生成待写入内容，不落盘。返回 preview JSON 字段。"""
+    config = _load_config()
+    root = _expand(config["knowledge_base"]["root"])
+    action_cfg = _get_action_cfg(config, action)
+    target_rel = target_override or action_cfg["target"]
+    target = root / target_rel
+
+    if mode == "raw":
+        summary, md_body = _build_raw_markdown(raw_text)
+        section_template = action_cfg["section"]
+        if section_template == "auto":
+            section_template = "## {date}"
+        section_heading = section_template.format(**_now_vars())
+    else:
+        if prompt_override:
+            prompt_path = Path(prompt_override)
+        else:
+            prompt_path = SCRIPT_DIR / action_cfg["prompt"]
+        if not prompt_path.exists():
+            sys.exit(f"[archiver] 找不到 prompt 文件: {prompt_path}")
+        system_prompt = prompt_path.read_text(encoding="utf-8")
+        provider = provider_override or os.environ.get("ARCHIVER_PROVIDER") or config.get("provider", "dryrun")
+        raw_output = _call_llm(provider, config["models"], system_prompt, raw_text, action)
+        parsed = _extract_json(raw_output)
+        md_body = (parsed.get("markdown") or "").strip()
+        if not md_body:
+            return {
+                "ok": False,
+                "summary": parsed.get("summary") or "LLM 没产出可追加的内容",
+                "action": action,
+                "target": target_rel,
+            }
+        section_heading = _resolve_section(action_cfg["section"], parsed.get("section_name"))
+        summary = parsed.get("summary") or "已整理"
+
+    return {
+        "ok": True,
+        "action": action,
+        "target": target_rel,
+        "target_path": str(target),
+        "section_heading": section_heading,
+        "markdown": md_body,
+        "summary": summary,
+        "mode": mode,
+    }
+
+
+def commit_prepared(payload: dict[str, Any], *, notify: bool | None = None) -> None:
+    """把 prepare_archive / 用户确认后的 JSON 写入磁盘。"""
+    if not payload.get("ok"):
+        msg = payload.get("summary", "无法写入")
+        print(f"[archiver] 跳过写入：{msg}")
+        return
+
+    config = _load_config()
+    root = _expand(config["knowledge_base"]["root"])
+    action = payload["action"]
+    action_cfg = _get_action_cfg(config, action)
+    target = root / payload["target"]
+    section_heading = payload["section_heading"]
+    md_body = payload["markdown"]
+    summary = payload.get("summary", "已追加")
+
+    if config["behavior"].get("auto_git_checkpoint", True):
+        _git_checkpoint(root, action)
+
+    _append_to_section(target, section_heading, md_body)
+
+    if config["behavior"].get("write_archive_log", True):
+        _write_archive_log(root, action, summary, action_cfg["target"])
+
+    print(f"[archiver] ✓ {summary}\n  → {target}\n  ↳ {section_heading}")
+    do_notify = notify if notify is not None else config["behavior"].get("notify", True)
+    if do_notify:
+        _notify(f"AI Archiver · {action_cfg.get('label', action)}", summary)
 
 
 def run(
@@ -277,70 +389,43 @@ def run(
     dry_run: bool,
     provider_override: str | None,
     mode: str = "ai",
+    prompt_override: str | None = None,
+    target_override: str | None = None,
+    notify: bool | None = None,
 ) -> None:
+    payload = prepare_archive(
+        action, raw_text,
+        provider_override=provider_override,
+        mode=mode,
+        prompt_override=prompt_override,
+        target_override=target_override,
+    )
+    if not payload.get("ok"):
+        msg = payload.get("summary") or "LLM 没产出可追加的内容"
+        print(f"[archiver] 跳过写入：{msg}")
+        if _load_config()["behavior"].get("notify", True):
+            _notify("AI Archiver · 跳过", msg)
+        return
+
     config = _load_config()
     kb_root = _expand(config["knowledge_base"]["root"])
-
-    actions = config["actions"]
-    if action not in actions:
-        sys.exit(f"[archiver] 未知 action: {action}\n可用: {', '.join(actions)}")
-    action_cfg = actions[action]
-
-    if mode == "raw":
-        # 原文模式：跳过 LLM
-        summary, md_body = _build_raw_markdown(raw_text)
-        # 原文模式下，section 模板里如果是 "auto"（让 LLM 判断）就退化成日期
-        section_template = action_cfg["section"]
-        if section_template == "auto":
-            section_template = "## {date}"
-        section_heading = section_template.format(**_now_vars())
-        parsed = {"summary": summary}
-    else:
-        # AI 模式：走原来的 LLM 流程
-        prompt_path = SCRIPT_DIR / action_cfg["prompt"]
-        if not prompt_path.exists():
-            sys.exit(f"[archiver] 找不到 prompt 文件: {prompt_path}")
-        system_prompt = prompt_path.read_text(encoding="utf-8")
-
-        provider = provider_override or os.environ.get("ARCHIVER_PROVIDER") or config.get("provider", "dryrun")
-        raw_output = _call_llm(provider, config["models"], system_prompt, raw_text, action)
-        parsed = _extract_json(raw_output)
-
-        md_body = (parsed.get("markdown") or "").strip()
-        if not md_body:
-            msg = parsed.get("summary") or "LLM 没产出可追加的内容"
-            print(f"[archiver] 跳过写入：{msg}")
-            if config["behavior"].get("notify", True):
-                _notify("AI Archiver · 跳过", msg)
-            return
-
-        section_heading = _resolve_section(action_cfg["section"], parsed.get("section_name"))
-
+    action_cfg = _get_action_cfg(config, action)
     target = kb_root / action_cfg["target"]
+    section_heading = payload["section_heading"]
+    md_body = payload["markdown"]
 
     if dry_run:
         print("=" * 60)
         print(f"[dry-run] action      : {action}  (mode={mode})")
         print(f"[dry-run] target file : {target}")
         print(f"[dry-run] section     : {section_heading}")
-        print(f"[dry-run] summary     : {parsed.get('summary')}")
+        print(f"[dry-run] summary     : {payload.get('summary')}")
         print("[dry-run] markdown 预览 ↓")
         print(md_body)
         print("=" * 60)
         return
 
-    if config["behavior"].get("auto_git_checkpoint", True):
-        _git_checkpoint(kb_root, action)
-
-    _append_to_section(target, section_heading, md_body)
-
-    if config["behavior"].get("write_archive_log", True):
-        _write_archive_log(kb_root, action, parsed.get("summary", ""), action_cfg["target"])
-
-    summary = parsed.get("summary") or "已追加"
-    print(f"[archiver] ✓ {summary}\n  → {target}\n  ↳ {section_heading}")
-    if config["behavior"].get("notify", True):
-        _notify(f"AI Archiver · {action_cfg.get('label', action)}", summary)
+    commit_prepared(payload, notify=notify)
 
 
 def list_actions() -> None:
@@ -362,18 +447,54 @@ def main() -> None:
     p.add_argument("--provider", help="临时覆盖 provider")
     p.add_argument("--mode", choices=["ai", "raw"], default="ai",
                    help="ai=调 LLM 结构化（默认），raw=原文模式不调 LLM 直接追加")
+    p.add_argument("--preview-json", action="store_true",
+                   help="只生成结构化结果，输出 JSON 到 stdout，不写文件")
+    p.add_argument("--commit-json", action="store_true",
+                   help="从 stdin 读取 prepare 产出的 JSON 并写入（用于预览后确认）")
+    p.add_argument("--no-notify", action="store_true", help="写入时不弹通知（由调用方弹）")
+    p.add_argument("--prompt", help="覆盖 prompt 文件路径（自定义 Prompt）")
+    p.add_argument("--target", help="覆盖写入的目标 .md 文件名（相对知识库根）")
     p.add_argument("--list", action="store_true", help="列出所有操作")
     args = p.parse_args()
 
-    if args.list or not args.action:
+    if args.list or (not args.action and not args.commit_json):
         list_actions()
+        return
+
+    notify = not args.no_notify
+
+    if args.commit_json:
+        raw_json = sys.stdin.read()
+        if not raw_json.strip():
+            sys.exit("[archiver] commit-json 需要 stdin JSON")
+        payload = json.loads(raw_json)
+        commit_prepared(payload, notify=notify)
         return
 
     raw_text = _read_text(args)
     if not raw_text.strip():
         sys.exit("[archiver] 输入文本为空")
 
-    run(args.action, raw_text, dry_run=args.dry_run, provider_override=args.provider, mode=args.mode)
+    if args.preview_json:
+        payload = prepare_archive(
+            args.action, raw_text,
+            provider_override=args.provider,
+            mode=args.mode,
+            prompt_override=args.prompt,
+            target_override=args.target,
+        )
+        print(json.dumps(payload, ensure_ascii=False))
+        return
+
+    run(
+        args.action, raw_text,
+        dry_run=args.dry_run,
+        provider_override=args.provider,
+        mode=args.mode,
+        prompt_override=args.prompt,
+        target_override=args.target,
+        notify=notify,
+    )
 
 
 if __name__ == "__main__":
