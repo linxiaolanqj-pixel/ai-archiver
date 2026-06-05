@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>随便问</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      background: #0c1016;
+      color: #e8eef6;
+      overflow: hidden;
+    }
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 16px 20px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .meta {
+      font-size: 11px;
+      color: #6d8099;
+      margin-bottom: 14px;
+    }
+    .answer {
+      flex: 1;
+      background: #141a22;
+      border: 1px solid #2a3544;
+      border-radius: 10px;
+      padding: 14px 16px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #b8c5d6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .answer.empty { color: #6d8099; text-align: center; padding-top: 40px; }
+    .input-row {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #2a3544;
+      background: #0c1016;
+      color: #e8eef6;
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+    .input-row input:focus { border-color: #3dd68c; }
+    .input-row button {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: #062012;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .loading { color: #6d8099; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h2>🤔 随便问</h2>
+    <div class="meta" id="meta">加载中…</div>
+    <div class="answer empty" id="answer">输入问题，回车提交</div>
+    <div class="input-row">
+      <input type="text" id="q" placeholder="问点什么？例如：里面有几个待办？" autofocus />
+      <button id="send">问 →</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      function api() { return window.pywebview && window.pywebview.api; }
+      function waitForApi() {
+        return new Promise((r) => {
+          const tick = () => (api() ? r(api()) : setTimeout(tick, 50));
+          tick();
+        });
+      }
+      const $ = (id) => document.getElementById(id);
+
+      async function ask() {
+        const q = $("q").value.trim();
+        if (!q) return;
+        $("send").disabled = true;
+        $("answer").classList.remove("empty");
+        $("answer").innerHTML = `<span class="loading">思考中…</span>`;
+        const r = await api().ask(q);
+        $("answer").textContent = r.answer || r.error || "(无回答)";
+        $("send").disabled = false;
+      }
+
+      $("send").onclick = ask;
+      $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+
+      waitForApi().then(async (a) => {
+        const m = await a.get_meta();
+        $("meta").textContent = m.target
+          ? `资料来源：${m.target_path}（${m.context_len} 字进上下文）`
+          : "未设置默认文档";
+      });
+    })();
+  </script>
+</body>
+</html>

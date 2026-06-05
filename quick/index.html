@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quick Archive</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, "PingFang SC", sans-serif;
+      background: transparent;
+      color: #e8eef6;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .panel {
+      width: 100%;
+      height: 100%;
+      background: rgba(20, 26, 34, 0.96);
+      border: 1px solid #2a3544;
+      border-radius: 14px;
+      padding: 14px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 11px;
+      color: #6d8099;
+    }
+    .head .target {
+      color: #7dffb2;
+      font-weight: 600;
+    }
+    .body {
+      flex: 1;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #b8c5d6;
+      background: #0c1016;
+      border-radius: 8px;
+      padding: 8px 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      word-break: break-all;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.1s;
+      font-family: inherit;
+    }
+    button:active { transform: scale(0.97); }
+    .yes {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: #062012;
+    }
+    .no {
+      background: rgba(255,255,255,0.08);
+      color: #c8d4e0;
+    }
+    .toast {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(20, 26, 34, 0.94);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 14px;
+      line-height: 1.55;
+      text-align: left;
+      padding: 22px;
+      border-radius: 14px;
+    }
+    .toast.show { display: flex; }
+    .toast .ok { color: #7dffb2; margin-right: 6px; font-weight: 700; }
+    .kbd {
+      display: inline-block;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 10px;
+      padding: 1px 5px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      margin-left: 6px;
+      color: #8b9cb3;
+    }
+    .loading {
+      text-align: center;
+      color: #6d8099;
+      padding: 30px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="head">
+      <span><span id="mode">…</span> · <span id="len">0</span> 字</span>
+      <span class="target" id="target">…</span>
+    </div>
+    <div class="body" id="preview">加载中…</div>
+    <div class="actions">
+      <button class="no" id="btn-no">❌ 取消<span class="kbd">Esc</span></button>
+      <button class="yes" id="btn-yes">✅ 归档<span class="kbd">↵</span></button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      function api() { return window.pywebview && window.pywebview.api; }
+      function waitForApi() {
+        return new Promise((r) => {
+          const tick = () => (api() ? r(api()) : setTimeout(tick, 50));
+          tick();
+        });
+      }
+
+      const $ = (id) => document.getElementById(id);
+
+      function showToast(html, autoClose) {
+        const t = $("toast");
+        t.innerHTML = html;
+        t.classList.add("show");
+        if (autoClose) {
+          setTimeout(() => api().close(), autoClose);
+        }
+      }
+
+      async function onYes() {
+        $("btn-yes").disabled = true;
+        $("btn-no").disabled = true;
+        showToast(`<span class="ok">✓</span> 正在写入…`);
+        const r = await api().confirm();
+        if (r.ok) {
+          showToast(`<div><span class="ok">✓</span>${r.message || ("已经补充到 " + r.target + "，放在了文件末尾。")}</div>`, 1800);
+        } else {
+          showToast(`<span style="color:#ff9eb0">✗</span> ${r.error || "失败"}`, 2500);
+        }
+      }
+
+      async function onNo() {
+        await api().cancel();
+        await api().close();
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") onYes();
+        if (e.key === "Escape") onNo();
+      });
+
+      waitForApi().then(async (a) => {
+        const p = await a.get_payload();
+        $("mode").textContent = p.mode_label;
+        $("len").textContent = p.len;
+        $("target").textContent = "→ " + p.target_label;
+        $("preview").textContent = p.preview || "(空)";
+        $("btn-yes").onclick = onYes;
+        $("btn-no").onclick = onNo;
+      });
+    })();
+  </script>
+</body>
+</html>

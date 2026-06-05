@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Archiver · 后台</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">🦞 AI Archiver</div>
+      <nav class="nav">
+        <button type="button" class="nav-item active" data-tab="home">📊 首页</button>
+        <button type="button" class="nav-item" data-tab="history">📜 历史记录</button>
+        <button type="button" class="nav-item" data-tab="dict">📕 词典</button>
+        <button type="button" class="nav-item" data-tab="hotkey">⌨️ 快捷键</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button type="button" class="link" id="open-kb">打开知识库 ↗</button>
+      </div>
+    </aside>
+
+    <main class="content" id="content">
+      <div class="loading">加载中…</div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

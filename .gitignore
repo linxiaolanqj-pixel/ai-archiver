@@ -10,6 +10,7 @@ __pycache__/
 # 运行时
 .menubar.pid
 .menubar.log
+.history/
 
 # macOS
 .DS_Store

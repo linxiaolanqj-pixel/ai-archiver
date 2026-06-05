@@ -61,18 +61,143 @@ def get_blacklist(cfg: dict | None = None) -> list[str]:
     cfg = cfg or load_config()
     beh = cfg.get("behavior", {}) or {}
     extra = list(beh.get("skip_blacklist", []) or [])
-    state_extra = load_state().get("skip_blacklist_extra", []) or []
+    state = load_state()
+    auto = list(state.get("skip_blacklist_auto") or state.get("skip_blacklist_extra") or [])
+    manual = list(state.get("skip_blacklist_manual") or [])
     merged: list[str] = []
-    for p in BUILTIN_SKIP_PATTERNS + extra + state_extra:
+    for p in BUILTIN_SKIP_PATTERNS + extra + manual + auto:
         if p and p not in merged:
             merged.append(p)
     return merged
+
+
+def get_dictionary() -> dict[str, list[str]]:
+    """词典视图：内置 / config / manual / auto，分组返回。"""
+    cfg = load_config()
+    state = load_state()
+    return {
+        "builtin": list(BUILTIN_SKIP_PATTERNS),
+        "config": list((cfg.get("behavior", {}) or {}).get("skip_blacklist") or []),
+        "manual": list(state.get("skip_blacklist_manual") or []),
+        "auto": list(state.get("skip_blacklist_auto") or state.get("skip_blacklist_extra") or []),
+    }
+
+
+def add_manual_skip(pattern: str) -> bool:
+    pattern = (pattern or "").strip()
+    if not pattern:
+        return False
+    state = load_state()
+    manual: list[str] = list(state.get("skip_blacklist_manual") or [])
+    if pattern in manual:
+        return False
+    manual.append(pattern)
+    state["skip_blacklist_manual"] = manual
+    save_state(state)
+    return True
+
+
+def remove_skip(pattern: str, *, scope: str = "manual") -> bool:
+    state = load_state()
+    key = "skip_blacklist_manual" if scope == "manual" else "skip_blacklist_auto"
+    items: list[str] = list(state.get(key) or [])
+    if pattern not in items:
+        if scope == "auto" and pattern in (state.get("skip_blacklist_extra") or []):
+            extras = [p for p in (state.get("skip_blacklist_extra") or []) if p != pattern]
+            state["skip_blacklist_extra"] = extras
+            save_state(state)
+            return True
+        return False
+    state[key] = [p for p in items if p != pattern]
+    save_state(state)
+    return True
+
+
+def get_hotkeys() -> dict[str, dict[str, str]]:
+    state = load_state()
+    hk = state.get("hotkeys") or {}
+    defaults = {
+        "input": {"name": "归档", "shortcut": "⌃⌥⌘A", "cmd": "~/tools/ai-archiver/run.sh quick"},
+        "translate": {"name": "AI 转译", "shortcut": "⌃⌥⌘T", "cmd": "~/tools/ai-archiver/run.sh translate polish"},
+        "ask": {"name": "随便问", "shortcut": "⌃⌥⌘Q", "cmd": "~/tools/ai-archiver/run.sh ask"},
+    }
+    for k, v in defaults.items():
+        cur = hk.get(k) or {}
+        defaults[k] = {**v, **cur}
+    if defaults["translate"].get("cmd") == "~/tools/ai-archiver/run.sh translate":
+        defaults["translate"]["cmd"] = "~/tools/ai-archiver/run.sh translate polish"
+    return defaults
+
+
+def set_hotkey(key: str, *, name: str | None = None, shortcut: str | None = None) -> dict:
+    from hotkey_util import normalize_hotkey
+
+    state = load_state()
+    hk = dict(state.get("hotkeys") or {})
+    cur = dict(hk.get(key) or {})
+    if name is not None:
+        cur["name"] = name
+    if shortcut is not None:
+        cur["shortcut"] = normalize_hotkey(shortcut)
+    hk[key] = cur
+    state["hotkeys"] = hk
+    save_state(state)
+    return get_hotkeys()[key]
+
+
+_CODE_SIGNS = [
+    r"^\s*(def|class|function|const|let|var|public|private|import|from)\s+\w",
+    r"^\s*(if|for|while|switch|return|try|catch|elif|else if)\s*[\(:{]",
+    r"^\s*[#/]{2,}\s",
+    r"^\s*(<[A-Za-z!][^>]*>|</[A-Za-z]+>)",
+    r"=>\s*[\({]",
+    r";\s*$",
+]
+
+
+def looks_like_code(text: str) -> bool:
+    """启发式：复制内容像不像代码 / 长配置 / 命令。"""
+    t = text.strip()
+    if not t:
+        return False
+    if "```" in t:
+        return True
+    lines = [ln for ln in t.splitlines() if ln.strip()]
+    if len(lines) < 3:
+        return False
+    indented = sum(1 for ln in lines if ln.startswith((" " * 2, "\t")))
+    if indented / len(lines) >= 0.4:
+        return True
+    hits = 0
+    sample = lines[:80]
+    for ln in sample:
+        for pat in _CODE_SIGNS:
+            try:
+                if re.search(pat, ln):
+                    hits += 1
+                    break
+            except re.error:
+                continue
+    return hits / max(len(sample), 1) >= 0.25
+
+
+def get_behavior(cfg: dict | None = None) -> dict:
+    cfg = cfg or load_config()
+    return cfg.get("behavior", {}) or {}
 
 
 def should_skip_text(text: str, min_length: int, cfg: dict | None = None) -> bool:
     t = text.strip()
     if len(t) < min_length:
         return True
+
+    beh = get_behavior(cfg)
+    max_length = int(beh.get("auto_prompt_max_length", 0) or 0)
+    if max_length > 0 and len(t) > max_length:
+        return True
+    if bool(beh.get("skip_code_like", True)) and looks_like_code(t):
+        return True
+
     for pat in get_blacklist(cfg):
         try:
             if re.search(pat, t, re.IGNORECASE | re.MULTILINE):
@@ -83,21 +208,25 @@ def should_skip_text(text: str, min_length: int, cfg: dict | None = None) -> boo
 
 
 def add_to_blacklist_extra(pattern: str) -> None:
+    """自动加入跳过名单（来自连续跳过等场景，标记为 auto 组）。"""
     pattern = pattern.strip()
     if not pattern:
         return
     state = load_state()
-    extra: list[str] = state.get("skip_blacklist_extra", []) or []
-    if pattern not in extra:
-        extra.append(pattern)
-    state["skip_blacklist_extra"] = extra
+    auto: list[str] = list(state.get("skip_blacklist_auto") or state.get("skip_blacklist_extra") or [])
+    if pattern not in auto:
+        auto.append(pattern)
+    state["skip_blacklist_auto"] = auto
+    state.pop("skip_blacklist_extra", None)
     save_state(state)
 
 
 def remove_from_blacklist_extra(pattern: str) -> None:
     state = load_state()
-    extra: list[str] = state.get("skip_blacklist_extra", []) or []
-    state["skip_blacklist_extra"] = [p for p in extra if p != pattern]
+    for key in ("skip_blacklist_auto", "skip_blacklist_extra", "skip_blacklist_manual"):
+        items = list(state.get(key) or [])
+        if pattern in items:
+            state[key] = [p for p in items if p != pattern]
     save_state(state)
 
 

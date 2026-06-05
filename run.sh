@@ -10,16 +10,11 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 ACTION="${1:-daily}"
 shift || true
 
-# 支持环境变量 ARCHIVER_MODE=raw 切到原文模式（菜单栏 App 走这条）
-MODE_ARGS=()
-if [ "${ARCHIVER_MODE:-}" = "raw" ]; then
-  MODE_ARGS=(--mode raw)
+if [ -x "$DIR/.venv/bin/python" ]; then
+  PY="$DIR/.venv/bin/python"
+else
+  PY="$(command -v python3)"
 fi
-if [ -n "${ARCHIVER_TARGET:-}" ]; then
-  MODE_ARGS+=(--target "$ARCHIVER_TARGET")
-fi
-
-# 加载 .env（如果存在）
 if [ -f "$DIR/.env" ]; then
   set -a
   # shellcheck disable=SC1091
@@ -27,11 +22,40 @@ if [ -f "$DIR/.env" ]; then
   set +a
 fi
 
-# 优先用 venv 里的 python
-if [ -x "$DIR/.venv/bin/python" ]; then
-  PY="$DIR/.venv/bin/python"
-else
-  PY="$(command -v python3)"
+# 快捷入口
+case "$ACTION" in
+  popup)
+    exec "$PY" "$DIR/popup.py" "$@"
+    ;;
+  quick)
+    # 极简 ✅❌ 浮层（绑给「输入快捷键」）
+    exec "$PY" "$DIR/quick_archive.py" "$@"
+    ;;
+  translate)
+    # AI 转译浮层：mode 可选 polish / i18n / structure，缺省 polish
+    MODE="${1:-polish}"
+    if [ "$MODE" = "polish" ] || [ "$MODE" = "i18n" ] || [ "$MODE" = "structure" ]; then
+      shift
+    else
+      MODE="polish"
+    fi
+    exec "$PY" "$DIR/quick_archive.py" --mode "$MODE" "$@"
+    ;;
+  ask)
+    exec "$PY" "$DIR/ask.py" "$@"
+    ;;
+  dashboard)
+    exec "$PY" "$DIR/dashboard.py" "$@"
+    ;;
+esac
+
+# 缺省：把 ACTION 当作 archiver.py 的 action 名直接调用（菜单栏 / Shortcuts 都走这条）
+MODE_ARGS=()
+if [ "${ARCHIVER_MODE:-}" = "raw" ]; then
+  MODE_ARGS=(--mode raw)
+fi
+if [ -n "${ARCHIVER_TARGET:-}" ]; then
+  MODE_ARGS+=(--target "$ARCHIVER_TARGET")
 fi
 
 if [ -n "$*" ]; then

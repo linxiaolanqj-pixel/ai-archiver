@@ -21,6 +21,7 @@ from settings_util import (
     get_api_key,
     get_blacklist,
     get_default_target,
+    get_hotkeys,
     get_quick_pick_targets,
     iter_kb_markdown_files,
     kb_root,
@@ -37,6 +38,8 @@ from settings_util import (
 from onboarding import _display_dialog, run_onboarding  # _display_dialog 用于短确认弹窗
 from picker_util import choose_archive_target, choose_md_file, choose_new_md_file
 from ui_util import one_line_summary, show_long_text_preview, truncate_for_dialog
+from history import bump_archived, read_clipboard_image, record_image, record_text
+from hotkey_util import event_to_hotkey, normalize_hotkey
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -101,13 +104,15 @@ class ArchiverApp(rumps.App):
         self._mute_after = 2
         self._ai_preview = True
 
-        # 未完成新客引导前：不监听剪贴板，避免设置过程中弹「是否归档」
+        # Cmd+C 默认只记录历史；是否自动弹归档框由用户手动打开旧模式。
         self._onboarding_active = not onboarding_done()
-        self._watch_mode = onboarding_done() and not self._onboarding_active
+        self._watch_mode = bool(load_state().get("auto_prompt_enabled", False)) and not self._onboarding_active
         self._dialog_open = False
         self._last_clipboard = ""
         self._skip_streak = 0
         self._ai_mode = True
+        self._hotkey_monitor = None
+        self._hotkey_last_at: dict[str, float] = {}
 
         self._load_config()
         self._build_menu()
@@ -116,6 +121,7 @@ class ArchiverApp(rumps.App):
         self._last_clipboard = _read_clipboard()
         self._timer = rumps.Timer(self._poll_clipboard, POLL_INTERVAL)
         self._timer.start()
+        self._install_hotkey_monitor()
 
         if not onboarding_done():
             threading.Thread(target=self._run_onboarding_safe, daemon=True).start()
@@ -150,8 +156,13 @@ class ArchiverApp(rumps.App):
         self._kb_root = kb_root(self._cfg)
         beh = self._cfg.get("behavior", {}) or {}
         self._min_length = int(beh.get("auto_prompt_min_length", 100))
+        self._max_length = int(beh.get("auto_prompt_max_length", 2500) or 0)
         self._mute_after = int(beh.get("auto_mute_after_skips", 2))
         self._ai_preview = bool(beh.get("ai_preview_before_write", True))
+        self._skip_code_like = bool(beh.get("skip_code_like", True))
+        self._clip_stable_ms = int(beh.get("clipboard_stable_ms", 700))
+        self._pending_clip: str = ""
+        self._pending_at: float = 0.0
 
         # rel_path -> (展示名, action_key)
         target_to_action: dict[str, tuple[str, str]] = {}
@@ -221,6 +232,8 @@ class ArchiverApp(rumps.App):
         self.menu.add(rumps.MenuItem("📂 选择写入目标…", callback=self._pick_from_all_folders))
         self.menu.add(rumps.MenuItem(NEW_FILE_LABEL, callback=self._main_new_file))
         self.menu.add(rumps.separator)
+        self.menu.add(rumps.MenuItem("📊 打开后台…", callback=self._open_dashboard))
+        self.menu.add(rumps.separator)
 
         self._mode_item = rumps.MenuItem(self._mode_label(), callback=self._toggle_mode)
         self.menu.add(self._mode_item)
@@ -232,6 +245,7 @@ class ArchiverApp(rumps.App):
         self.menu.add(rumps.MenuItem("🌟 更换默认归档文档…", callback=self._settings_default_doc))
         self.menu.add(rumps.MenuItem("⚙️ 设置 API Key…", callback=self._settings_api))
         self.menu.add(rumps.MenuItem("📏 调整复制门槛…", callback=self._settings_threshold))
+        self.menu.add(rumps.MenuItem("🛡️ 防误触：长文/代码…", callback=self._settings_protect))
         self.menu.add(rumps.MenuItem("🚫 管理跳过黑名单…", callback=self._settings_blacklist))
         self.menu.add(rumps.MenuItem("📂 打开 Prompt 目录", callback=self._open_prompts))
         self.menu.add(rumps.MenuItem("🎓 重新走新客引导", callback=self._rerun_onboarding))
@@ -247,7 +261,7 @@ class ArchiverApp(rumps.App):
     def _watch_label(self) -> str:
         if self._onboarding_active:
             return "⏸ 新客引导中（暂不监听复制）"
-        return f"{'✅' if self._watch_mode else '⬜'} 复制后自动询问（≥{self._min_length} 字）"
+        return f"{'✅' if self._watch_mode else '⬜'} 旧模式：Cmd+C 后自动询问（≥{self._min_length} 字）"
 
     def _make_handler(self, target: str):
         def handler(_s):
@@ -287,22 +301,106 @@ class ArchiverApp(rumps.App):
     def _toggle_watch(self, _s) -> None:
         self._watch_mode = not self._watch_mode
         self._skip_streak = 0
+        state = load_state()
+        state["auto_prompt_enabled"] = self._watch_mode
+        save_state(state)
         self._watch_item.title = self._watch_label()
 
+    def _install_hotkey_monitor(self) -> None:
+        """监听后台配置的全局快捷键。
+
+        macOS 第一次使用可能需要授予「辅助功能」权限。失败时不影响菜单栏和历史记录。
+        """
+        try:
+            import AppKit
+        except Exception:
+            return
+        if self._hotkey_monitor is not None:
+            return
+
+        def handler(event):
+            try:
+                self._handle_global_hotkey(event)
+            except Exception as e:
+                rumps.notification("AI Archiver", "快捷键监听出错", str(e)[:120])
+
+        try:
+            self._hotkey_monitor = AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+                AppKit.NSEventMaskKeyDown,
+                handler,
+            )
+        except Exception as e:
+            rumps.notification("AI Archiver", "快捷键监听未启动", str(e)[:120])
+
+    def _handle_global_hotkey(self, event) -> None:
+        combo = normalize_hotkey(event_to_hotkey(event))
+        if not combo:
+            return
+        hotkeys = get_hotkeys()
+        matched: tuple[str, dict] | None = None
+        for key, info in hotkeys.items():
+            if combo == normalize_hotkey(info.get("shortcut", "")):
+                matched = (key, info)
+                break
+        if not matched:
+            return
+
+        import time
+
+        now = time.time()
+        last = self._hotkey_last_at.get(combo, 0)
+        if now - last < 1.0:
+            return
+        self._hotkey_last_at[combo] = now
+
+        key, info = matched
+        cmd = info.get("cmd") or ""
+        if not cmd:
+            return
+        try:
+            subprocess.Popen(
+                ["/bin/zsh", "-lc", cmd],
+                cwd=str(SCRIPT_DIR),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as e:
+            rumps.notification("AI Archiver", f"{info.get('name', key)} 启动失败", str(e)[:120])
+
     def _poll_clipboard(self, _s) -> None:
-        if self._onboarding_active or not self._watch_mode or self._dialog_open:
+        if self._onboarding_active:
             return
         cur = _read_clipboard()
-        if not cur or cur == self._last_clipboard:
-            return
-        self._last_clipboard = cur
-        if should_skip_text(cur, self._min_length, self._cfg):
-            return
-        threading.Thread(target=self._ask_and_archive, args=(cur,), daemon=True).start()
+        if cur and cur != self._last_clipboard:
+            import time
+
+            now = time.time()
+            if cur != self._pending_clip:
+                self._pending_clip = cur
+                self._pending_at = now
+                return
+            if (now - self._pending_at) * 1000 < self._clip_stable_ms:
+                return
+
+            self._last_clipboard = cur
+            self._pending_clip = ""
+
+            try:
+                record_text(cur, source="clip")
+            except Exception:
+                pass
+
+            if not self._watch_mode or self._dialog_open:
+                return
+            if should_skip_text(cur, self._min_length, self._cfg):
+                return
+            threading.Thread(target=self._ask_and_archive, args=(cur,), daemon=True).start()
 
     def _ask_and_archive(self, text: str) -> None:
         self._dialog_open = True
         try:
+            self._load_config()
             target = self._show_file_picker(text)
             if not target:
                 self._on_user_skip(text)
@@ -409,15 +507,14 @@ class ArchiverApp(rumps.App):
         return self._pick_md_via_finder(text)
 
     def _pick_md_via_finder(self, text: str) -> str | None:
-        """打开 Finder 点选 .md，或新建（不再列长清单）。"""
+        """打开 Finder 直接点选 .md（不再多一层中间清单）。"""
         preview = re.sub(r"\s+", " ", text.strip())[:50]
-        rel = choose_archive_target(
+        rel = choose_md_file(
             self._kb_root,
             prompt=f"{preview}…",
         )
         if rel is None:
             return None
-        # 刷新菜单（可能选了新文件或之前未扫描到的路径）
         self._load_config()
         self._build_menu()
         return rel
@@ -460,6 +557,10 @@ class ArchiverApp(rumps.App):
                 return
         self._skip_streak = 0
         record_target_usage(target)
+        try:
+            bump_archived(1)
+        except Exception:
+            pass
         self._toast(target, _bump_today_count(), True)
         return
 
@@ -601,6 +702,58 @@ class ArchiverApp(rumps.App):
         except ValueError:
             pass
 
+    def _settings_protect(self, _s) -> None:
+        """调最大字数 / 切换代码检测 / 改稳定期。"""
+        cur_max = self._max_length
+        cur_code = self._skip_code_like
+        cur_stable = self._clip_stable_ms
+        info = (
+            f"当前：\\n"
+            f"  最大字数 {cur_max}（超过不弹，0=不限）\\n"
+            f"  代码检测：{'开' if cur_code else '关'}\\n"
+            f"  稳定期 {cur_stable} ms\\n\\n"
+            "格式：max,code,stable\\n"
+            "例如：2500,1,700  或  0,0,500"
+        )
+        default = f"{cur_max},{1 if cur_code else 0},{cur_stable}"
+        script = (
+            f'display dialog "{info}" default answer "{default}" '
+            'buttons {"取消", "保存"} default button "保存" with title "🛡️ 防误触"'
+        )
+        r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=120)
+        if r.returncode != 0:
+            return
+        val = r.stdout.strip()
+        if val.startswith("text returned:"):
+            val = val.split(":", 1)[1].strip()
+        parts = [p.strip() for p in val.replace("，", ",").split(",")]
+        if len(parts) < 3:
+            rumps.notification("AI Archiver", "格式不对", "需要：max,code,stable")
+            return
+        try:
+            new_max = int(parts[0])
+            new_code = parts[1] not in ("0", "false", "False", "off", "no")
+            new_stable = int(parts[2])
+        except ValueError:
+            rumps.notification("AI Archiver", "数字解析失败", val[:80])
+            return
+
+        cfg = load_config()
+        beh = cfg.get("behavior", {}) or {}
+        beh["auto_prompt_max_length"] = max(0, new_max)
+        beh["skip_code_like"] = bool(new_code)
+        beh["clipboard_stable_ms"] = max(0, new_stable)
+        cfg["behavior"] = beh
+        from settings_util import save_config
+
+        save_config(cfg)
+        self._load_config()
+        rumps.notification(
+            "AI Archiver",
+            "防误触已更新",
+            f"max={beh['auto_prompt_max_length']}, code={'on' if new_code else 'off'}, stable={beh['clipboard_stable_ms']}ms",
+        )
+
     def _settings_blacklist(self, _s) -> None:
         bl = get_blacklist(self._cfg)
         preview = "\\n".join(bl[:8]) + ("\\n…" if len(bl) > 8 else "")
@@ -660,6 +813,23 @@ class ArchiverApp(rumps.App):
     def _open_kb(self, _s) -> None:
         if self._kb_root.exists():
             subprocess.run(["open", str(self._kb_root)])
+
+    def _open_dashboard(self, _s) -> None:
+        """后台 App 必须独立进程跑（webview 主线程要求）。"""
+        dash = SCRIPT_DIR / "dashboard.py"
+        if not dash.exists():
+            rumps.notification("AI Archiver", "缺少 dashboard.py", "")
+            return
+        try:
+            subprocess.Popen(
+                [PY, str(dash)],
+                cwd=str(SCRIPT_DIR),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as e:
+            rumps.notification("AI Archiver", "后台启动失败", str(e)[:120])
 
     def _view_log(self, _s) -> None:
         log = self._kb_root / "_archive_log.md"
