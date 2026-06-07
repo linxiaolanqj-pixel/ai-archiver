@@ -17,9 +17,14 @@
     只要 SCRIPT_DIR 指向 .app/Contents/Resources/scripts 即可。
 """
 
+import os
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 block_cipher = None
+
+# 图标：assets/Skillless.icns 存在则用，没有就 None
+_ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(SPEC)), "assets", "Skillless.icns")
+ICON = _ICON_PATH if os.path.exists(_ICON_PATH) else None
 
 # ------------------------------------------------------------------------------
 # 资源文件 + 子脚本（全部放进 .app/Contents/Resources/）
@@ -30,6 +35,7 @@ DATAS = [
     ("dashboard",  "dashboard"),
     ("quick",      "quick"),
     ("prompts",    "prompts"),
+    ("assets",     "assets"),
     # 配置（用户可后续覆盖）
     ("config.yaml", "."),
     # 子脚本（被主进程 subprocess.Popen 拉起）
@@ -146,7 +152,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="Skillless.app",
-    icon=None,  # 可后续加 icon.icns
+    icon=ICON,
     bundle_identifier="com.skillless.app",
     info_plist={
         "CFBundleName": "Skillless",

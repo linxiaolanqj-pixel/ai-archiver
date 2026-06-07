@@ -74,6 +74,12 @@ class OnboardingApi:
         self.success: bool = False
 
     def get_meta(self) -> dict:
+        # 已有 hotkey 就主动挂上监听，免得用户必须重设一次
+        try:
+            if (get_hotkeys().get("input") or {}).get("shortcut"):
+                self._ensure_hotkey_listener()
+        except Exception:
+            pass
         return {"has_key": bool(get_api_key().startswith("sk-"))}
 
     def _adopt_md_file(self, abs_path: Path) -> dict:
@@ -158,12 +164,14 @@ class OnboardingApi:
     def get_input_hotkey(self) -> dict:
         try:
             hk = get_hotkeys().get("input") or {}
-            return {"ok": True, "shortcut": hk.get("shortcut", ""), "name": hk.get("name", "归档")}
+            return {"ok": True, "shortcut": hk.get("shortcut", ""), "name": hk.get("name", "精简")}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
     def set_input_hotkey(self, shortcut: str) -> dict:
-        """从前端 keydown 拿到 ⌃⌥A 这种字符串，标准化后保存。"""
+        """从前端 keydown 拿到 ⌃⌥A 这种字符串，标准化后保存
+        + 立刻在 onboarding 进程内注册一次 NSEvent 全局监听，让用户能马上按一下测试。
+        """
         try:
             from hotkey_util import is_reasonable_hotkey, normalize_hotkey
 
@@ -171,7 +179,138 @@ class OnboardingApi:
             if not is_reasonable_hotkey(norm):
                 return {"ok": False, "error": "需要至少一个修饰键 + 一个字母键"}
             info = set_hotkey("input", shortcut=norm)
-            return {"ok": True, "shortcut": info.get("shortcut", norm)}
+            saved = info.get("shortcut", norm)
+            listener = self._ensure_hotkey_listener()
+            return {
+                "ok": True,
+                "shortcut": saved,
+                "listener_ok": listener.get("ok", False),
+                "listener_msg": listener.get("msg", ""),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def _ensure_hotkey_listener(self) -> dict:
+        """onboarding 期间临时挂两个 NSEvent 监听器，触发 input hotkey 时 spawn 胶囊：
+
+        - Global monitor: 只收【其他 App】的事件，需要 macOS「输入监听」权限
+        - Local monitor:  只收【本进程窗口】的事件，不需要任何权限
+
+        两个一起挂，用户在 onboarding 窗口内按、或在别的 App 里按 都能触发，
+        也方便诊断「按键收不到」到底是 hotkey 字符串错了 还是 系统权限没批。
+        """
+        if getattr(self, "_hk_monitor", None) is not None:
+            return {"ok": True, "msg": "listener_running"}
+        try:
+            import AppKit
+            from hotkey_util import event_to_hotkey, normalize_hotkey
+
+            self._hk_any_event_at = 0.0    # 任何 keydown 收到的时间（global 或 local 都算）
+            self._hk_any_source = ""       # "global" / "local" / ""
+            self._hk_match_at = 0.0
+            self._hk_last_seen_combo = ""
+
+            def _hotkey_fired():
+                """按下匹配的快捷键时的真实工作：
+                - 检查剪贴板：太短或为空 → 临时 pbcopy demo 文字让胶囊有内容显示
+                - 然后 spawn 胶囊（不阻塞主线程）
+                必须在后台线程跑，否则 time.sleep + subprocess 会卡死 webview。
+                """
+                try:
+                    clip = subprocess.run(
+                        ["pbpaste"], capture_output=True, text=True, timeout=3,
+                    ).stdout
+                    if len((clip or "").strip()) < 30:
+                        self.copy_demo_to_clipboard()
+                    self._spawn_capsule(wait_for_error=False)
+                except Exception:
+                    traceback.print_exc()
+
+            def _on_keydown(event, source: str):
+                """source 标记事件来自 global / local monitor。
+                在 NSEvent 回调主线程里不做任何重活，匹配后把真实工作扔到后台。
+                """
+                try:
+                    import time
+                    import threading
+                    self._hk_any_event_at = time.time()
+                    self._hk_any_source = source
+                    combo = normalize_hotkey(event_to_hotkey(event))
+                    if combo:
+                        self._hk_last_seen_combo = combo
+                    if not combo:
+                        return
+                    hk = get_hotkeys().get("input") or {}
+                    want = normalize_hotkey(hk.get("shortcut", ""))
+                    if not want or combo != want:
+                        return
+                    now = time.time()
+                    last = getattr(self, "_hk_last_at", 0)
+                    if now - last < 1.0:
+                        return
+                    self._hk_last_at = now
+                    self._hk_match_at = now
+                    # 关键：扔后台跑，handler 立刻返回，避免阻塞主线程
+                    threading.Thread(target=_hotkey_fired, daemon=True).start()
+                except Exception:
+                    traceback.print_exc()
+
+            def global_handler(event):
+                _on_keydown(event, "global")
+
+            def local_handler(event):
+                _on_keydown(event, "local")
+                # local handler 必须 return event（None 会 swallow 事件）
+                return event
+
+            self._hk_monitor = AppKit.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+                AppKit.NSEventMaskKeyDown, global_handler,
+            )
+            self._hk_local_monitor = AppKit.NSEvent.addLocalMonitorForEventsMatchingMask_handler_(
+                AppKit.NSEventMaskKeyDown, local_handler,
+            )
+            ok = self._hk_monitor is not None
+            return {
+                "ok": ok or self._hk_local_monitor is not None,
+                "msg": "listener_started" if ok
+                       else "addGlobalMonitor 返回 None（可能没批准「输入监听」权限）",
+            }
+        except Exception as e:
+            return {"ok": False, "msg": f"{type(e).__name__}: {str(e)[:160]}"}
+
+    def get_hotkey_diag(self) -> dict:
+        """前端轮询：监听器是否挂上、最近收到了任何 keydown 没、最近匹配到 hotkey 没。
+        三条信息合起来就能定位「按下没反应」的原因：
+          - listener=False                  → 监听器没挂上（权限弹窗被拒/没出现）
+          - listener=True, any=False        → 挂上了但收不到事件（输入监听权限缺）
+          - listener=True, any=True, match=False → 收到事件了但组合对不上（按错键 / 别 app 抢走）
+          - listener=True, any=True, match=True  → 全链路通，胶囊应该已经弹了
+        """
+        import time
+        now = time.time()
+        any_at = float(getattr(self, "_hk_any_event_at", 0) or 0)
+        match_at = float(getattr(self, "_hk_match_at", 0) or 0)
+        hk = get_hotkeys().get("input") or {}
+        return {
+            "listener_global": getattr(self, "_hk_monitor", None) is not None,
+            "listener_local":  getattr(self, "_hk_local_monitor", None) is not None,
+            "configured": hk.get("shortcut", ""),
+            "any_event": any_at > 0,
+            "any_age_ms": int((now - any_at) * 1000) if any_at > 0 else -1,
+            "any_source": getattr(self, "_hk_any_source", ""),
+            "match": match_at > 0,
+            "match_age_ms": int((now - match_at) * 1000) if match_at > 0 else -1,
+            "last_seen_combo": getattr(self, "_hk_last_seen_combo", ""),
+        }
+
+    def open_input_monitoring_settings(self) -> dict:
+        """打开系统设置 → 隐私 → 输入监控（macOS 13+）。"""
+        try:
+            subprocess.run(
+                ["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"],
+                check=False,
+            )
+            return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
@@ -227,20 +366,67 @@ class OnboardingApi:
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
-    def trigger_capsule(self) -> dict:
-        """直接拉起 quick_capsule.py，不依赖全局快捷键监听。"""
+    def _demo_target_path(self) -> Path:
+        """onboarding 期间专用的归档目标 .md，避免污染用户真实 KB。"""
+        p = SCRIPT_DIR / ".history" / "_skillless_demo.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if not p.exists():
+            p.write_text(
+                "# Skillless · 试用归档\n\n"
+                "_这是上手引导里点「立即试一次」/ 按快捷键弹胶囊时会写入的演示文档。_\n"
+                "_设置完默认文档后，新归档会去你的 md 文件，不会再写到这里。_\n\n",
+                encoding="utf-8",
+            )
+        return p
+
+    def _spawn_capsule(self, *, wait_for_error: bool = True) -> dict:
+        """实际拉起胶囊进程的共用方法。
+        - 不动剪贴板（剪贴板里是啥就弹啥）
+        - 目标用 onboarding 专用 demo md
+        - wait_for_error=False 时立刻返回，handler 用（避免阻塞 main loop）
+        """
         try:
             from bootkit import child_cmd
-            self.copy_demo_to_clipboard()
-            subprocess.Popen(
-                child_cmd("capsule"),
-                cwd=str(SCRIPT_DIR),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+            cmd = child_cmd("capsule", "--target", str(self._demo_target_path()))
+            log_file = SCRIPT_DIR / ".history" / "_capsule_spawn.log"
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            f = open(log_file, "wb")
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
+            proc = subprocess.Popen(
+                cmd, cwd=str(SCRIPT_DIR),
+                stdout=f, stderr=subprocess.STDOUT,
+                start_new_session=True, env=env,
             )
+            if not wait_for_error:
+                return {"ok": True}
+            import time
+            time.sleep(1.5)
+            rc = proc.poll()
+            try:
+                f.flush(); f.close()
+            except Exception:
+                pass
+            if rc is not None and rc != 0:
+                try:
+                    tail = log_file.read_text(encoding="utf-8", errors="replace").strip()
+                except Exception:
+                    tail = ""
+                if not tail:
+                    tail = f"（日志为空；cmd={cmd!r}）"
+                return {"ok": False, "error": f"rc={rc}\n{tail[-800:]}"}
             return {"ok": True}
         except Exception as e:
-            return {"ok": False, "error": str(e)[:200]}
+            return {"ok": False, "error": f"{type(e).__name__}: {str(e)[:300]}"}
+
+    def trigger_capsule(self) -> dict:
+        """「立即试一次」按钮专用：先 pbcopy demo 文字 → spawn 胶囊。
+        这条路径是为了让用户在 onboarding 里能立刻看到胶囊效果，
+        所以会主动覆盖剪贴板。"""
+        copy_res = self.copy_demo_to_clipboard()
+        if not copy_res.get("ok"):
+            return {"ok": False, "error": f"复制失败：{copy_res.get('error', '')}"}
+        return self._spawn_capsule(wait_for_error=True)
 
     def get_summary(self) -> dict:
         return {
@@ -275,9 +461,9 @@ def run_onboarding_window() -> bool:
         "Skillless · 上手",
         url=url,
         js_api=api,
-        width=820,
-        height=620,
-        min_size=(720, 560),
+        width=860,
+        height=720,
+        min_size=(760, 600),
         resizable=True,
         text_select=True,
         background_color="#ffffff",

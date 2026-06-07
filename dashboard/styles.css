@@ -121,11 +121,35 @@ body.theme-dark .dot-spin { border-color: #1f2733; border-top-color: #38bdf8; }
   flex-shrink: 0;
 }
 .brand {
-  padding: 20px 20px 18px;
+  padding: 18px 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand .brand-mark {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.brand .brand-mark img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.brand .brand-mark.no-img {
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 800;
   font-size: 13px;
+}
+.brand .brand-mark.no-img::after { content: "S"; }
+.brand .brand-name {
+  font-size: 14px;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
 }
 .nav {
   display: flex;
@@ -188,8 +212,9 @@ body.theme-dark .dot-spin { border-color: #1f2733; border-top-color: #38bdf8; }
   justify-content: space-between;
   gap: 8px;
 }
-.foot-actions { display: flex; gap: 2px; }
+.foot-actions { display: none; }
 .foot-icon {
+  display: none;
   width: 28px;
   height: 28px;
   border: none;
@@ -701,7 +726,8 @@ body.theme-dark .sidebar {
   background: #0e131c;
   border-right-color: #1f2733;
 }
-body.theme-dark .brand { color: #f1f5f9; }
+body.theme-dark .brand .brand-name { color: #f1f5f9; }
+body.theme-dark .brand .brand-mark.no-img { background: #f1f5f9; color: #0f172a; }
 body.theme-dark .nav-item { color: #94a3b8; }
 body.theme-dark .nav-item:hover { background: #161d2b; color: #f1f5f9; }
 body.theme-dark .nav-item:hover .nav-ico { color: #cbd5e1; }

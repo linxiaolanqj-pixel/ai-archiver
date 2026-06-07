@@ -33,13 +33,23 @@ html, body {
 .logo-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 24px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: transparent;
+}
+.logo-mark img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+}
+/* 图未生成时的 fallback：黑底白 S */
+.logo-mark.no-img {
   background: #0f172a;
   color: #fff;
-  border-radius: 7px;
   font-weight: 800;
   font-size: 14px;
-  letter-spacing: 0;
 }
+.logo-mark.no-img::after { content: "S"; }
 .logo-name {
   font-size: 15px;
   font-weight: 700;
@@ -145,6 +155,18 @@ p.lead {
 }
 .btn.outline:hover { background: #f8fafc; border-color: #cbd5e1; }
 
+.btn.big {
+  padding: 12px 24px;
+  font-size: 14.5px;
+  border-radius: 11px;
+  width: 100%;
+}
+.btn.err {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
 /* —— Step 1 · Welcome —— */
 .welcome {
   text-align: center;
@@ -152,17 +174,26 @@ p.lead {
   animation: fade-up 0.4s ease both;
 }
 .welcome .hero-mark {
-  width: 64px; height: 64px;
-  margin: 0 auto 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
-  border-radius: 18px;
+  width: 96px; height: 96px;
+  margin: 0 auto 22px;
+  border-radius: 22px;
+  overflow: hidden;
   display: flex; align-items: center; justify-content: center;
+  background: #ffffff;
+  box-shadow: 0 8px 24px -8px rgba(15, 23, 42, 0.18);
+}
+.welcome .hero-mark img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.welcome .hero-mark.no-img {
+  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
   color: #fff;
   font-weight: 800;
-  font-size: 30px;
-  letter-spacing: -0.02em;
-  box-shadow: 0 8px 24px -8px rgba(15, 23, 42, 0.25);
+  font-size: 44px;
 }
+.welcome .hero-mark.no-img::after { content: "S"; }
 .welcome h2.title { font-size: 28px; margin-bottom: 10px; }
 .welcome p.lead { font-size: 14.5px; max-width: 460px; margin: 0 auto; }
 
@@ -187,10 +218,11 @@ p.lead {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  min-height: 230px;
+  min-height: 300px;
   position: relative;
   overflow: hidden;
 }
+.compare2 .a-text { flex: 1; }
 .compare2 .col.after {
   border-color: #bae6fd;
   background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 60%);
@@ -246,40 +278,57 @@ p.lead {
   font-weight: 700;
 }
 
-/* —— 流程演示 —— */
-.demo-section { margin-top: 22px; }
-.demo-section .demo-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.demo-section h3 {
-  font-size: 15px;
+/* —— 二级标题（怎么归档 / 还能做啥） —— */
+h3.title-2 {
+  font-size: 19px;
   font-weight: 700;
   color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 28px 0 4px;
 }
-.demo-section .demo-replay {
-  font-size: 12px;
-  color: #0284c7;
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  font-family: inherit;
-}
-.demo-section .demo-replay:hover { color: #075985; text-decoration: underline; }
 
+.why-tail {
+  margin-top: 22px;
+  padding: 14px 18px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  font-size: 13.5px;
+  color: #0c4a6e;
+  line-height: 1.6;
+}
+.why-tail strong { color: #0284c7; }
+
+/* —— 流程演示 stage —— */
 .demo-stage {
   position: relative;
   background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 18px;
-  height: 220px;
+  height: 260px;
   overflow: hidden;
+  margin-top: 4px;
 }
 
-/* 模拟"原文" */
+.demo-replay-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.demo-replay {
+  font-size: 12px;
+  color: #0284c7;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.demo-replay:hover { color: #075985; background: #e0f2fe; }
+
+/* ① 原文卡 */
 .demo-source {
   position: absolute;
   inset: 18px 18px auto 18px;
@@ -288,7 +337,7 @@ p.lead {
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: #334155;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
   z-index: 1;
@@ -300,10 +349,6 @@ p.lead {
   padding: 0 2px;
   transition: background 0.25s;
 }
-/* phase 1 (0–25%)：选中三段 */
-.demo-stage.run .src-line.sel { background: rgba(2, 132, 199, 0.18); }
-.demo-stage.run .src-line.sel-2 { animation-delay: 0.15s; }
-.demo-stage.run .src-line.sel-3 { animation-delay: 0.3s; }
 
 /* 模拟胶囊本体：三态合一（thinking / result / feedback 由动画时间轴切换） */
 .demo-capsule {
@@ -311,31 +356,41 @@ p.lead {
   left: 50%;
   bottom: 18px;
   transform: translate(-50%, 12px);
-  width: 320px;
+  width: 340px;
+  height: 152px;
   background: #0f172a;
   color: #f8fafc;
   border-radius: 14px;
-  padding: 10px 14px;
   font-size: 12px;
   box-shadow: 0 12px 30px -10px rgba(15, 23, 42, 0.45);
   opacity: 0;
   z-index: 2;
 }
 
-/* 三态都是同一个胶囊内的子层，靠 opacity / display 切换 */
+/* 三态都是同一个胶囊内的子层；
+   关键：用 visibility/opacity 切换而不是 display，
+   这样 .cap-l1..l4 这类子动画时序不会因父元素 display:none 被截断/重启。
+   三态绝对定位重叠在胶囊体内，避免占位互相挤压。 */
 .cap-thinking,
 .cap-result,
 .cap-feedback {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  padding: 10px 14px;
+  box-sizing: border-box;
 }
 .cap-thinking {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12.5px;
   color: #e2e8f0;
   padding: 2px 0;
 }
+.cap-result { display: block; }
+.cap-feedback { display: block; }
 .cap-spin {
   width: 12px; height: 12px;
   border-radius: 50%;
@@ -383,6 +438,37 @@ p.lead {
   white-space: nowrap;
   max-width: 0;
   vertical-align: bottom;
+}
+/* 结构化精简：4 行 block 排版，每行错峰渐入 */
+.cap-result .cap-typed-md {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.cap-row {
+  display: block;
+  opacity: 0;
+  transform: translateY(3px);
+}
+.cap-row strong {
+  color: #38bdf8;
+  font-weight: 700;
+}
+.cap-row .cap-sub {
+  color: #cbd5e1;
+  font-size: 11.5px;
+  display: block;
+  padding-left: 16px;
+}
+/* 错峰淡入：父元素 cap-result 在 25%-62% 可见（2.25-5.58s）
+   4 行依次在这段窗口内淡入并保持，由父元素 visibility 统一收尾 */
+.demo-stage.run .cap-l1 { animation: line-in 9s ease-out infinite; animation-delay: 0s;    }
+.demo-stage.run .cap-l2 { animation: line-in 9s ease-out infinite; animation-delay: 0.20s; }
+.demo-stage.run .cap-l3 { animation: line-in 9s ease-out infinite; animation-delay: 0.40s; }
+.demo-stage.run .cap-l4 { animation: line-in 9s ease-out infinite; animation-delay: 0.60s; }
+@keyframes line-in {
+  0%, 22%   { opacity: 0; transform: translateY(4px); }
+  28%, 100% { opacity: 1; transform: translateY(0); }
 }
 .cap-result .cap-cursor {
   display: inline-block;
@@ -451,90 +537,474 @@ p.lead {
 }
 
 /* ===============================================================
- * 动画时间轴（总 8s loop）—— 严格对齐真实胶囊三态：
- *   0.0–1.2s  Phase ① 选中：三行依次高亮
- *   1.4–2.2s  胶囊升起，Phase ② 精简（thinking）
- *   2.2–4.6s  Phase ② 精简（result：打字机吐结果）
- *   4.6–5.4s  Phase ③ 归档：归档按钮按下高亮
- *   5.4–6.6s  胶囊整体变 feedback ✓ 已写入
- *   6.6–8.0s  全部淡出复位
+ * 动画时间轴（总 9s loop）：
+ *   0.0–1.4s  Phase ① 选中：三行依次染蓝
+ *   1.4–2.2s  胶囊升起 + Thinking
+ *   2.2–5.0s  Phase ② 结构化：原文淡化，胶囊吐结构化结果（带粗体 / 列表）
+ *   5.0–5.6s  Phase ③ 归档：胶囊"📥 归档"按钮被按下
+ *   5.6–7.4s  胶囊缩成小包裹 → 飞向右下文件夹
+ *   7.0–7.8s  文件夹弹一下 + +1 角标
+ *   7.8–9.0s  复位
  * =============================================================== */
 
 /* ① 选中：三行依次染蓝 */
-.demo-stage.run .src-line.sel-1 { animation: hl 8s ease-in-out infinite; animation-delay: 0s; }
-.demo-stage.run .src-line.sel-2 { animation: hl 8s ease-in-out infinite; animation-delay: 0.18s; }
-.demo-stage.run .src-line.sel-3 { animation: hl 8s ease-in-out infinite; animation-delay: 0.36s; }
+.demo-stage.run .src-line.sel-1 { animation: hl 9s ease-in-out infinite; animation-delay: 0s; }
+.demo-stage.run .src-line.sel-2 { animation: hl 9s ease-in-out infinite; animation-delay: 0.18s; }
+.demo-stage.run .src-line.sel-3 { animation: hl 9s ease-in-out infinite; animation-delay: 0.36s; }
 @keyframes hl {
   0%, 3%    { background: transparent; }
-  6%, 20%   { background: rgba(2, 132, 199, 0.20); }
-  22%, 100% { background: transparent; }
+  6%, 16%   { background: rgba(2, 132, 199, 0.22); }
+  18%, 100% { background: transparent; }
 }
 
-/* 原文卡：精简期间略缩小淡化，强调焦点在胶囊 */
-.demo-stage.run .demo-source { animation: src-shrink 8s ease-in-out infinite; }
+/* 原文卡：精简期间淡化，归档期间彻底退场（视觉上"被吃掉") */
+.demo-stage.run .demo-source { animation: src-shrink 9s ease-in-out infinite; }
 @keyframes src-shrink {
-  0%, 18%   { transform: scale(1) translateY(0); opacity: 1; }
-  25%, 80%  { transform: scale(0.96) translateY(-4px); opacity: 0.45; }
-  90%, 100% { transform: scale(1) translateY(0); opacity: 1; }
+  0%, 14%   { transform: scale(1) translateY(0);   opacity: 1;   }
+  22%, 60%  { transform: scale(0.96) translateY(-2px); opacity: 0.5; }
+  68%, 92%  { transform: scale(0.92) translateY(-6px); opacity: 0.18; }
+  98%, 100% { transform: scale(1) translateY(0);   opacity: 1;   }
 }
 
-/* 胶囊升起 / 落下 */
-.demo-stage.run .demo-capsule { animation: cap-rise 8s ease-in-out infinite; }
+/* 胶囊升起 / 缩成包裹 */
+.demo-stage.run .demo-capsule { animation: cap-rise 9s ease-in-out infinite; }
 @keyframes cap-rise {
-  0%, 16%   { opacity: 0; transform: translate(-50%, 16px); }
-  22%, 82%  { opacity: 1; transform: translate(-50%, 0); }
-  88%, 100% { opacity: 0; transform: translate(-50%, 12px); }
+  0%, 14%   { opacity: 0; transform: translate(-50%, 16px) scale(1); }
+  18%, 56%  { opacity: 1; transform: translate(-50%, 0)    scale(1); }
+  62%, 64%  { opacity: 1; transform: translate(-50%, 0)    scale(0.94); }
+  68%, 100% { opacity: 0; transform: translate(-50%, 0)    scale(0.6); }
 }
 
-/* Phase 2a：thinking 显示 18%–28%（1.4s–2.2s） */
-.demo-stage.run .cap-thinking { animation: cap-thinking-show 8s ease-in-out infinite; }
+/* Phase 2a Thinking：14%–22%
+   关键：不用 display 切换（会暂停子动画并截断 line-in 时序），
+   用 visibility + opacity，让所有子动画连续运行。 */
+.demo-stage.run .cap-thinking { animation: cap-thinking-show 9s ease-in-out infinite; }
 @keyframes cap-thinking-show {
-  0%, 18%   { display: none; opacity: 0; }
-  20%, 28%  { display: flex; opacity: 1; }
-  29%, 100% { display: none; opacity: 0; }
+  0%, 14%   { visibility: hidden;  opacity: 0; }
+  17%, 22%  { visibility: visible; opacity: 1; }
+  23%, 100% { visibility: hidden;  opacity: 0; }
 }
 
-/* Phase 2b：result 显示 28%–67%（2.2s–5.4s） */
-.demo-stage.run .cap-result { animation: cap-result-show 8s ease-in-out infinite; }
+/* Phase 2b Result：22%–62%（结构化结果渐入 + 按钮可见） */
+.demo-stage.run .cap-result { animation: cap-result-show 9s ease-in-out infinite; }
 @keyframes cap-result-show {
-  0%, 28%   { display: none; opacity: 0; }
-  30%, 66%  { display: block; opacity: 1; }
-  68%, 100% { display: none; opacity: 0; }
+  0%, 22%   { visibility: hidden;  opacity: 0; }
+  25%, 62%  { visibility: visible; opacity: 1; }
+  64%, 100% { visibility: hidden;  opacity: 0; }
 }
 
-/* 打字机：result 区间内逐渐揭示 32%–55% */
-.demo-stage.run .cap-typed {
-  animation: typed 8s steps(40, end) infinite;
-}
-@keyframes typed {
-  0%, 32%   { max-width: 0; }
-  55%, 66%  { max-width: 290px; }
-  68%, 100% { max-width: 290px; }
-}
+/* 结构化结果：4 行 line-in 错峰渐入（见上方 .cap-l1/2/3/4 规则） */
 
-/* 归档按钮按下：58%–67%（4.6s–5.4s）—— 按钮被点的视觉 */
-.demo-stage.run .cap-btn.primary { animation: btn-press 8s ease-in-out infinite; }
+/* Phase ③ 归档按钮按下：56%–62% */
+.demo-stage.run .cap-btn.primary { animation: btn-press 9s ease-in-out infinite; }
 @keyframes btn-press {
-  0%, 56%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(56,189,248,0); }
-  60%, 65%  { transform: scale(0.94); box-shadow: 0 0 0 4px rgba(56,189,248,0.45); }
-  70%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+  0%, 54%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+  58%, 62%  { transform: scale(0.92); box-shadow: 0 0 0 5px rgba(56,189,248,0.5); }
+  66%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(56,189,248,0); }
 }
 
-/* Phase 3：feedback 显示 67%–82%（5.4s–6.6s） */
-.demo-stage.run .cap-feedback { animation: cap-feedback-show 8s ease-in-out infinite; }
-@keyframes cap-feedback-show {
-  0%, 67%   { display: none; opacity: 0; }
-  69%, 82%  { display: flex; opacity: 1; }
-  84%, 100% { display: none; opacity: 0; }
+/* 飞行包裹：从胶囊位置（中下） → 右下文件夹位置 */
+.demo-stage.run .demo-parcel { animation: parcel-fly 9s ease-in-out infinite; }
+@keyframes parcel-fly {
+  0%, 62%   { opacity: 0; transform: translate(-50%, -20px) scale(0.6); }
+  66%       { opacity: 1; transform: translate(-50%, -20px) scale(0.95); }
+  78%       { opacity: 1; transform: translate(70px, 50px)  scale(0.7); }
+  82%, 100% { opacity: 0; transform: translate(70px, 50px)  scale(0.4); }
 }
 
-/* phase chip 高亮时间表 */
-.demo-stage.run .ph-1 { animation: ph-light 8s linear infinite; }
-.demo-stage.run .ph-2 { animation: ph-light 8s linear infinite; animation-delay: 1.4s; }
-.demo-stage.run .ph-3 { animation: ph-light 8s linear infinite; animation-delay: 4.6s; }
+/* 文件夹：被包裹命中时弹一下 */
+.demo-stage.run .folder-shape { animation: folder-pop 9s ease-in-out infinite; }
+@keyframes folder-pop {
+  0%, 76%   { transform: scale(1); }
+  80%, 84%  { transform: scale(1.12); }
+  88%, 100% { transform: scale(1); }
+}
+.demo-stage.run .folder-badge { animation: badge-pop 9s ease-in-out infinite; }
+@keyframes badge-pop {
+  0%, 78%   { opacity: 0; transform: scale(0.4); }
+  82%, 95%  { opacity: 1; transform: scale(1); }
+  97%, 100% { opacity: 0; transform: scale(0.4); }
+}
+
+/* phase chip 高亮 */
+.demo-stage.run .ph-1 { animation: ph-light 9s linear infinite; }
+.demo-stage.run .ph-2 { animation: ph-light 9s linear infinite; animation-delay: 1.4s; }
+.demo-stage.run .ph-3 { animation: ph-light 9s linear infinite; animation-delay: 5.0s; }
 @keyframes ph-light {
   0%, 100% { background: #e5e7eb; color: #64748b; }
+  1%, 14%  { background: #0284c7; color: #ffffff; }
+}
+
+/* ============ Phase ③ 视觉元素：飞行包裹 + 文件夹 ============ */
+.demo-parcel {
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  background: #ffffff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #0369a1;
+  box-shadow: 0 4px 14px -4px rgba(2, 132, 199, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0;
+  transform: translate(-50%, -20px) scale(0.6);
+  z-index: 3;
+  white-space: nowrap;
+}
+.demo-parcel .parcel-ico { font-size: 13px; }
+
+.demo-folder {
+  position: absolute;
+  right: 20px;
+  bottom: 16px;
+  z-index: 2;
+}
+.folder-shape {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform-origin: center bottom;
+}
+.folder-emoji { font-size: 36px; line-height: 1; }
+.folder-name {
+  font-size: 11px;
+  color: #475569;
+  font-weight: 600;
+}
+.folder-badge {
+  position: absolute;
+  top: -2px;
+  right: -8px;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: scale(0.4);
+  box-shadow: 0 2px 6px -1px rgba(22, 163, 74, 0.45);
+}
+
+/* ============ Step 2 · 精简专用 stage（只做 复制→精简） ============ */
+.refine-stage.run .demo-capsule {
+  animation: refine-cap-rise 8s ease-in-out infinite;
+}
+@keyframes refine-cap-rise {
+  0%, 14%   { opacity: 0; transform: translate(-50%, 16px) scale(1); }
+  18%, 86%  { opacity: 1; transform: translate(-50%, 0)    scale(1); }
+  94%, 100% { opacity: 0; transform: translate(-50%, 0)    scale(1); }
+}
+.refine-stage.run .demo-source {
+  animation: refine-src 8s ease-in-out infinite;
+}
+@keyframes refine-src {
+  0%, 14%   { opacity: 1; transform: scale(1) translateY(0); }
+  22%, 78%  { opacity: 0.42; transform: scale(0.96) translateY(-2px); }
+  94%, 100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.refine-stage.run .cap-thinking {
+  animation: refine-thinking 8s ease-in-out infinite;
+}
+@keyframes refine-thinking {
+  0%, 14%   { visibility: hidden; opacity: 0; }
+  17%, 22%  { visibility: visible; opacity: 1; }
+  24%, 100% { visibility: hidden; opacity: 0; }
+}
+.refine-stage.run .cap-result {
+  animation: refine-result-show 8s ease-in-out infinite;
+}
+@keyframes refine-result-show {
+  0%, 22%   { visibility: hidden; opacity: 0; }
+  25%, 84%  { visibility: visible; opacity: 1; }
+  90%, 100% { visibility: hidden; opacity: 0; }
+}
+.refine-stage.run .cap-l1 { animation: refine-line-in 8s ease-out infinite; animation-delay: 0s; }
+.refine-stage.run .cap-l2 { animation: refine-line-in 8s ease-out infinite; animation-delay: 0.18s; }
+.refine-stage.run .cap-l3 { animation: refine-line-in 8s ease-out infinite; animation-delay: 0.36s; }
+.refine-stage.run .cap-l4 { animation: refine-line-in 8s ease-out infinite; animation-delay: 0.54s; }
+@keyframes refine-line-in {
+  0%, 22%   { opacity: 0; transform: translateY(4px); }
+  28%, 100% { opacity: 1; transform: translateY(0); }
+}
+.refine-stage.run .ph-1 { animation: refine-ph 8s linear infinite; }
+.refine-stage.run .ph-2 { animation: refine-ph 8s linear infinite; animation-delay: 1.4s; }
+@keyframes refine-ph {
+  0%, 100% { background: #e5e7eb; color: #64748b; }
   1%, 16%  { background: #0284c7; color: #ffffff; }
+}
+
+/* ============ Step 4 · 提问动画 stage ============ */
+.ask-stage {
+  position: relative;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px;
+  height: 280px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.ask-phase {
+  position: absolute;
+  top: 8px; right: 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  z-index: 4;
+}
+.ask-phase .aph {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #64748b;
+}
+.ask-source {
+  position: absolute;
+  top: 18px; left: 18px; right: 18px;
+  z-index: 1;
+}
+.ask-chat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+.ask-q-bubble {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #0f172a;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+.ask-q-text {
+  display: block;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+.ask-copy-badge {
+  position: absolute;
+  top: 0; right: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0369a1;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 3px 8px;
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.ask-md-chip {
+  position: absolute;
+  left: 18px;
+  bottom: 88px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0369a1;
+  background: #ffffff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 4px 10px;
+  opacity: 0;
+  z-index: 2;
+  box-shadow: 0 2px 8px -2px rgba(2, 132, 199, 0.2);
+}
+.ask-md-ico { font-size: 12px; }
+
+.ask-capsule {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translate(-50%, 12px);
+  width: 340px;
+  min-height: 120px;
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 14px;
+  font-size: 12px;
+  box-shadow: 0 12px 30px -10px rgba(15, 23, 42, 0.45);
+  opacity: 0;
+  z-index: 3;
+}
+.ask-idle,
+.ask-thinking,
+.ask-answer {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  padding: 12px 14px;
+  box-sizing: border-box;
+}
+.ask-idle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ask-cap-title { font-weight: 600; color: #f1f5f9; font-size: 13px; }
+.ask-btn {
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: #cbd5e1;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.ask-btn.primary {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+}
+.ask-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #e2e8f0;
+}
+.ask-answer { display: block; }
+.ask-ans-head { margin-bottom: 8px; }
+.ask-ans-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.ask-ans-body { font-size: 12px; line-height: 1.6; }
+.ask-ans-row {
+  display: block;
+  opacity: 0;
+  transform: translateY(4px);
+  margin-bottom: 4px;
+}
+.ask-ans-row strong { color: #38bdf8; font-weight: 700; }
+
+/* 提问动画时间轴（8s loop） */
+.ask-stage.run .ask-q-text { animation: ask-hl 8s ease-in-out infinite; }
+@keyframes ask-hl {
+  0%, 4%    { background: transparent; }
+  8%, 22%   { background: rgba(2, 132, 199, 0.18); }
+  26%, 100% { background: transparent; }
+}
+.ask-stage.run .ask-copy-badge { animation: ask-copy-in 8s ease-out infinite; }
+@keyframes ask-copy-in {
+  0%, 10%   { opacity: 0; transform: translateY(-4px); }
+  16%, 78%  { opacity: 1; transform: translateY(0); }
+  88%, 100% { opacity: 0; transform: translateY(-4px); }
+}
+.ask-stage.run .ask-capsule { animation: ask-cap-rise 8s ease-in-out infinite; }
+@keyframes ask-cap-rise {
+  0%, 18%   { opacity: 0; transform: translate(-50%, 16px); }
+  24%, 88%  { opacity: 1; transform: translate(-50%, 0); }
+  96%, 100% { opacity: 0; transform: translate(-50%, 16px); }
+}
+.ask-stage.run .ask-idle { animation: ask-idle-show 8s ease-in-out infinite; }
+@keyframes ask-idle-show {
+  0%, 22%   { visibility: hidden; opacity: 0; }
+  26%, 36%  { visibility: visible; opacity: 1; }
+  40%, 100% { visibility: hidden; opacity: 0; }
+}
+.ask-stage.run .ask-btn.primary { animation: ask-btn-press 8s ease-in-out infinite; }
+@keyframes ask-btn-press {
+  0%, 32%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+  36%, 40%  { transform: scale(0.92); box-shadow: 0 0 0 5px rgba(56,189,248,0.45); }
+  44%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+}
+.ask-stage.run .ask-thinking { animation: ask-thinking-show 8s ease-in-out infinite; }
+@keyframes ask-thinking-show {
+  0%, 38%   { visibility: hidden; opacity: 0; }
+  42%, 50%  { visibility: visible; opacity: 1; }
+  54%, 100% { visibility: hidden; opacity: 0; }
+}
+.ask-stage.run .ask-answer { animation: ask-answer-show 8s ease-in-out infinite; }
+@keyframes ask-answer-show {
+  0%, 50%   { visibility: hidden; opacity: 0; }
+  54%, 86%  { visibility: visible; opacity: 1; }
+  92%, 100% { visibility: hidden; opacity: 0; }
+}
+.ask-stage.run .ask-md-chip { animation: ask-md-in 8s ease-out infinite; }
+@keyframes ask-md-in {
+  0%, 48%   { opacity: 0; transform: translateY(6px); }
+  54%, 84%  { opacity: 1; transform: translateY(0); }
+  92%, 100% { opacity: 0; transform: translateY(6px); }
+}
+.ask-stage.run .ask-ar1 { animation: ask-ans-line 8s ease-out infinite; animation-delay: 0s; }
+.ask-stage.run .ask-ar2 { animation: ask-ans-line 8s ease-out infinite; animation-delay: 0.2s; }
+.ask-stage.run .ask-ar3 { animation: ask-ans-line 8s ease-out infinite; animation-delay: 0.4s; }
+@keyframes ask-ans-line {
+  0%, 52%   { opacity: 0; transform: translateY(4px); }
+  58%, 100% { opacity: 1; transform: translateY(0); }
+}
+.ask-stage.run .aph-1 { animation: ask-ph 8s linear infinite; }
+.ask-stage.run .aph-2 { animation: ask-ph 8s linear infinite; animation-delay: 2.0s; }
+.ask-stage.run .aph-3 { animation: ask-ph 8s linear infinite; animation-delay: 4.0s; }
+@keyframes ask-ph {
+  0%, 100% { background: #e5e7eb; color: #64748b; }
+  1%, 14%  { background: #0284c7; color: #ffffff; }
+}
+.ask-stage.run .ask-capsule {
+  min-height: 140px;
+}
+
+/* ============ 「除了归档还能做啥」4 个能力卡 ============ */
+.capa-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.capa-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.capa-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.capa-card-primary {
+  border-color: #bae6fd;
+  background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 70%);
+}
+.capa-ico {
+  font-size: 18px;
+  display: block;
+  margin-bottom: 6px;
+}
+.capa-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+.capa-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.5;
+}
+@media (max-width: 720px) {
+  .capa-grid,
+  .capa-grid-3 { grid-template-columns: 1fr; }
 }
 
 /* =========================================================
@@ -791,6 +1261,104 @@ p.lead {
 .hk-status.ok  { color: #15803d; }
 .hk-status.err { color: #b91c1c; }
 
+.hk-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hk-warn {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.55;
+}
+.hk-warn:empty { display: none; }
+.hk-warn-i {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+.btn.small {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.btn.ghost {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+.btn.ghost:hover { border-color: #94a3b8; background: #f8fafc; }
+
+.hk-diag {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.hk-diag-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.hk-diag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  color: #475569;
+  transition: background 0.2s ease;
+  border-radius: 6px;
+}
+.hk-diag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  flex-shrink: 0;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+.hk-diag-row[data-state="wait"]  .hk-diag-dot { background: #cbd5e1; }
+.hk-diag-row[data-state="ok"]    .hk-diag-dot { background: #22c55e; }
+.hk-diag-row[data-state="ok"]    { color: #166534; }
+.hk-diag-row[data-state="fresh"] .hk-diag-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34,197,94,0.20);
+}
+.hk-diag-row[data-state="fresh"] {
+  color: #166534;
+  background: #f0fdf4;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.hk-diag-row[data-state="err"]   .hk-diag-dot { background: #ef4444; }
+.hk-diag-row[data-state="err"]   { color: #b91c1c; }
+
+.hk-diag-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #475569;
+}
+.hk-diag-hint:empty { display: none; }
+.hk-diag-hint.err  { color: #b91c1c; }
+.hk-diag-hint.warn { color: #92400e; }
+.hk-diag-hint.ok   { color: #166534; }
+
 .try-card {
   background: #f8fafc;
   border: 1px solid #e5e7eb;
@@ -903,6 +1471,19 @@ p.lead {
   color: #94a3b8;
   margin-left: auto;
 }
+.api-col-summary {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+.api-col-on .api-col-summary {
+  color: #0f172a;
+  border-bottom-color: #bae6fd;
+}
+.api-col-on .api-col-summary strong { color: #0369a1; }
 .api-list {
   list-style: none;
   margin: 0;

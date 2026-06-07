@@ -117,7 +117,7 @@ def get_hotkeys() -> dict[str, dict[str, str]]:
     state = load_state()
     hk = state.get("hotkeys") or {}
     defaults = {
-        "input": {"name": "归档", "shortcut": "⌃⌥⌘A", "cmd": "~/tools/ai-archiver/run.sh quick"},
+        "input": {"name": "精简", "shortcut": "⌃⌥⌘A", "cmd": "~/tools/ai-archiver/run.sh quick"},
         "translate": {"name": "AI 转译", "shortcut": "⌃⌥⌘T", "cmd": "~/tools/ai-archiver/run.sh translate polish"},
         "ask": {"name": "随便问", "shortcut": "⌃⌥⌘Q", "cmd": "~/tools/ai-archiver/run.sh ask"},
     }

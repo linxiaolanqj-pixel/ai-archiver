@@ -572,19 +572,5 @@
     b.addEventListener("click", () => switchTab(b.dataset.tab));
   });
 
-  // sidebar 底部 icon 排
-  document.querySelectorAll("[data-foot]").forEach((b) => {
-    b.addEventListener("click", async () => {
-      const k = b.dataset.foot;
-      if (k === "kb") api().open_kb();
-      else if (k === "report") {
-        const r = await api().open_design_report();
-        if (!r.ok) showToast("报告未生成");
-      } else if (k === "events") {
-        api().open_path("/Users/linxiaolan10/tools/ai-archiver/.history/events.jsonl");
-      }
-    });
-  });
-
   waitForApi().then(() => switchTab("home"));
 })();

@@ -23,3 +23,7 @@ dist/
 
 # 调试用
 debug_hotkey.py
+
+# 图标构建中间产物（icon.png / .icns / icon-128.png 都入 git）
+assets/_tmp_*.png
+assets/Skillless.iconset/
