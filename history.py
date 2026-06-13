@@ -17,14 +17,14 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-HISTORY_DIR = SCRIPT_DIR / ".history"
+from app_paths import data_dir
+
+HISTORY_DIR = data_dir() / ".history"
 CLIPS_PATH = HISTORY_DIR / "clips.jsonl"
 IMG_DIR = HISTORY_DIR / "img"
 TXT_DIR = HISTORY_DIR / "txt"
@@ -149,60 +149,9 @@ def record_text(text: str, *, source: str = "clip") -> dict[str, Any]:
     return record
 
 
-def read_clipboard_image() -> bytes | None:
-    """尝试从剪贴板取图片（PNG bytes），失败返回 None。"""
-    script = '''
-    on run
-        try
-            set theData to (the clipboard as «class PNGf»)
-        on error
-            return ""
-        end try
-        set f to (POSIX file "{path}") as string
-        set fh to open for access file f with write permission
-        set eof fh to 0
-        write theData to fh
-        close access fh
-        return "{path}"
-    end run
-    '''
-    out_path = HISTORY_DIR / "_tmp_clip.png"
-    _ensure_dirs()
-    script = script.replace("{path}", str(out_path))
-    try:
-        r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=8)
-    except Exception:
-        return None
-    if r.returncode != 0 or not out_path.exists():
-        return None
-    try:
-        data = out_path.read_bytes()
-    finally:
-        try:
-            out_path.unlink(missing_ok=True)
-        except Exception:
-            pass
-    return data if data else None
-
-
-def record_image(data: bytes, *, source: str = "clip") -> dict[str, Any]:
-    if not data:
-        return {}
-    digest = _hash(data)
-    img_path = IMG_DIR / f"{digest}.png"
-    if not img_path.exists():
-        img_path.write_bytes(data)
-    record = {
-        "ts": int(time.time()),
-        "type": "image",
-        "source": source,
-        "hash": digest,
-        "size": len(data),
-        "img_path": str(img_path),
-        "preview": f"图片 {len(data) // 1024} KB",
-    }
-    _append(record)
-    return record
+# v0.4.15：原 read_clipboard_image / record_image 是 dead code（菜单栏 import 但从没调用过）。
+# 「图片即附件归档」改走 archiver_menubar._read_pb_image + quick_capsule.archive_image，
+# 直接用 NSPasteboard 拿 PNG/TIFF，不经 osascript。这两个旧函数已删除。
 
 
 # mtime-based cache：避免 dashboard 反复全量读 + parse jsonl

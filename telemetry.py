@@ -21,8 +21,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-EVENTS_PATH = SCRIPT_DIR / ".history" / "events.jsonl"
+from app_paths import data_dir
+
+EVENTS_PATH = data_dir() / ".history" / "events.jsonl"
 MAX_LINES = 10_000  # 防止无限增长，超出则保留尾部 8000 条
 
 _lock = threading.Lock()

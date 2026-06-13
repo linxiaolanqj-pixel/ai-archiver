@@ -50,6 +50,20 @@
       flex: 0 0 auto;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .stream-wait {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .stream-cursor {
+      display: inline-block;
+      color: #38bdf8;
+      animation: blink 0.9s step-end infinite;
+      margin-left: 1px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
 
     /* ===== 状态 2: Result ===== */
     .result { display: none; flex-direction: column; height: 100%; }
@@ -100,6 +114,63 @@
     }
     .head .target-switch:hover { color: #f1f5f9; background: rgba(255, 255, 255, 0.08); }
     .head .target-switch:active { transform: scale(0.92); }
+    .head .target-switch.open { color: #f1f5f9; background: rgba(255, 255, 255, 0.1); }
+
+    /* 切换目标的小浮层 */
+    .target-popover {
+      position: absolute;
+      right: 36px;
+      top: 38px;
+      min-width: 220px;
+      max-width: 280px;
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+      padding: 6px;
+      z-index: 50;
+      font-size: 12.5px;
+    }
+    .target-popover[hidden] { display: none; }
+    .target-popover .tp-hint {
+      padding: 4px 10px 6px;
+      color: #64748b;
+      font-size: 10.5px;
+      letter-spacing: 0.04em;
+    }
+    .target-popover .tp-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 12.5px;
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .target-popover .tp-item:hover { background: rgba(255, 255, 255, 0.06); }
+    .target-popover .tp-item .tp-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #475569; flex: 0 0 auto;
+    }
+    .target-popover .tp-item.current .tp-dot { background: #38bdf8; }
+    .target-popover .tp-item.current { color: #f1f5f9; font-weight: 600; }
+    .target-popover .tp-name {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 0; flex: 1 1 auto;
+    }
+    .target-popover .tp-divider {
+      height: 1px; background: rgba(255, 255, 255, 0.06);
+      margin: 4px 4px;
+    }
+    .target-popover .tp-item.tp-pick { color: #94a3b8; font-weight: 500; }
+    .target-popover .tp-item.tp-pick .tp-dot { background: transparent; }
     .head .close {
       background: transparent; border: none; color: #64748b;
       width: 20px; height: 20px; border-radius: 6px;
@@ -117,6 +188,346 @@
       -webkit-user-select: text; user-select: text;
     }
     .body.err { color: #fca5a5; font-size: 12.5px; white-space: pre-wrap; }
+    /* 「📚 与你的笔记」分隔后的小卡 */
+    .body hr {
+      margin: 12px 0 10px;
+      border: 0;
+      border-top: 1px dashed rgba(255, 255, 255, 0.12);
+    }
+    .body h3 {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #7dd3fc;
+      margin: 0 0 6px;
+      letter-spacing: 0.02em;
+    }
+    .body hr + h3 + ul {
+      background: rgba(56, 189, 248, 0.06);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 8px;
+      padding: 8px 12px 8px 26px;
+      margin: 0;
+    }
+    .body hr + h3 + ul li { font-size: 12.5px; color: #cbd5e1; line-height: 1.7; }
+    /* 旁白区也可能是 p / table / blockquote，给它们一致的卡片感（hr+h3 之后的相邻块） */
+    .body hr + h3 + p,
+    .body hr + h3 + blockquote {
+      background: rgba(56, 189, 248, 0.06);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 0;
+      font-size: 12.5px;
+      color: #cbd5e1;
+      line-height: 1.7;
+    }
+    /* 表格（旁白里常用「维度 vs 维度」对比） */
+    .body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0;
+      font-size: 12px;
+      table-layout: auto;
+    }
+    .body th, .body td {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 5px 8px;
+      text-align: left;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .body th {
+      background: rgba(56, 189, 248, 0.1);
+      color: #e0f2fe;
+      font-weight: 600;
+      font-size: 11.5px;
+    }
+    .body td { color: #cbd5e1; }
+    .body td strong { color: #f1f5f9; }
+    /* 引用块（旁白里偶尔引用历史会议或他人发言） */
+    .body blockquote {
+      border-left: 3px solid rgba(56, 189, 248, 0.4);
+      padding: 2px 10px;
+      margin: 6px 0;
+      color: #cbd5e1;
+      font-style: italic;
+    }
+    body.theme-white .body hr { border-top-color: #e2e8f0; }
+    body.theme-white .body h3 { color: #0369a1; }
+    body.theme-white .body hr + h3 + ul,
+    body.theme-white .body hr + h3 + p,
+    body.theme-white .body hr + h3 + blockquote {
+      background: #eff8ff;
+      border-color: #cfe5fb;
+      color: #334155;
+    }
+    body.theme-white .body hr + h3 + ul li { color: #334155; }
+    body.theme-white .body th, body.theme-white .body td {
+      border-color: #e2e8f0;
+      color: #334155;
+    }
+    body.theme-white .body th {
+      background: #eff8ff;
+      color: #075985;
+    }
+    body.theme-white .body td strong { color: #0f172a; }
+    body.theme-white .body blockquote {
+      border-left-color: #cfe5fb;
+      color: #475569;
+    }
+
+    /* 视角补充的轻反馈 👍/👎 */
+    .kb-fb {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px 0;
+      margin: 6px 0 2px;
+      font-size: 11.5px;
+      color: #64748b;
+    }
+    .kb-fb.show { display: flex; }
+    .kb-fb .kb-fb-label { opacity: 0.85; }
+    .kb-fb-btn {
+      cursor: pointer;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #94a3b8;
+      font-family: inherit;
+      font-size: 11.5px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .kb-fb-btn:hover { color: #f1f5f9; background: rgba(255,255,255,0.06); }
+    .kb-fb-btn.active.up { color: #4ade80; border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); }
+    .kb-fb-btn.active.down { color: #fb923c; border-color: rgba(251,146,60,0.4); background: rgba(251,146,60,0.08); }
+    .kb-fb-thx { font-size: 11px; color: #94a3b8; }
+    body.theme-white .kb-fb { color: #64748b; }
+    body.theme-white .kb-fb-btn { border-color: #e2e8f0; color: #64748b; }
+    body.theme-white .kb-fb-btn:hover { background: #f1f5f9; color: #0f172a; }
+    body.theme-white .kb-fb-btn.active.up { color: #16a34a; border-color: #bbf7d0; background: #f0fdf4; }
+    body.theme-white .kb-fb-btn.active.down { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+
+    /* 👎 展开的 reason chips：「关联错误 / 过度解读 / 过时信息」 */
+    .kb-fb-reasons { display: none; align-items: center; gap: 6px; }
+    .kb-fb.show.show-reasons .kb-fb-reasons { display: inline-flex; }
+    .kb-fb.show.show-reasons .kb-fb-btn.up,
+    .kb-fb.show.show-reasons .kb-fb-btn.down { display: none; }
+    .kb-fb-chip {
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: transparent;
+      border: 1px solid rgba(251,146,60,0.35);
+      color: #fdba74;
+      font-family: inherit;
+      font-size: 11px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .kb-fb-chip:hover { background: rgba(251,146,60,0.1); color: #fed7aa; }
+    .kb-fb-chip[disabled] { opacity: 0.5; cursor: default; }
+    body.theme-white .kb-fb-chip { color: #c2410c; border-color: #fed7aa; }
+    body.theme-white .kb-fb-chip:hover { background: #fff7ed; }
+
+    /* 双 card 拆分：「📝 精简」+「💡 视角补充」 */
+    .r-card { margin: 0 0 8px 0; }
+    .r-card:last-child { margin-bottom: 0; }
+    .r-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.06em;
+      margin: 0 0 4px 0;
+    }
+    .r-aside {
+      background: rgba(56, 189, 248, 0.05);
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      border-radius: 10px;
+      padding: 7px 12px 6px 12px;
+    }
+    .r-aside .r-label { color: #7dd3fc; }
+    /* aside 内部 AI 自己写的 hr / h3 标题被 label 取代，隐藏避免重复 */
+    .r-aside > hr, .r-aside > h3:first-child, .r-aside > h3:nth-child(2) { display: none; }
+    .r-aside > * { margin-top: 0; }
+    body.theme-white .r-label { color: #64748b; }
+    body.theme-white .r-aside { background: #eff8ff; border-color: #cfe5fb; }
+    body.theme-white .r-aside .r-label { color: #0369a1; }
+
+    /* 自动学习的疑似拼写卡片（路线 D，挂在 result-body 下、kb-fb 上） */
+    /* 配色保持中性，提示「这事已经做完」而不是「等你操作」 */
+    .dict-fix {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 8px 12px 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(148, 163, 184, 0.08);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    .dict-fix[hidden] { display: none; }
+    .dict-fix-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.55;
+    }
+    .dict-fix-row.undone {
+      opacity: 0.55;
+      color: #94a3b8;
+    }
+    .dict-fix-row.undone .dict-fix-text b {
+      text-decoration: line-through;
+      color: #94a3b8;
+    }
+    .dict-fix-text { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+    .dict-fix-text .ico { margin-right: 2px; }
+    .dict-fix-text b { color: #f1f5f9; font-weight: 600; }
+    .dict-fix-text .arrow { color: #64748b; margin: 0 2px; }
+    .dict-fix-btn {
+      flex: 0 0 auto;
+      cursor: pointer;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: #cbd5e1;
+      font-family: inherit;
+      font-size: 11.5px;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .dict-fix-btn:hover { background: rgba(148, 163, 184, 0.18); color: #f1f5f9; }
+    .dict-fix-btn[disabled] { opacity: 0.7; cursor: default; }
+    body.theme-white .dict-fix {
+      border-color: #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+    }
+    body.theme-white .dict-fix-text b { color: #0f172a; }
+    body.theme-white .dict-fix-text .arrow { color: #94a3b8; }
+    body.theme-white .dict-fix-row.undone { color: #94a3b8; }
+    body.theme-white .dict-fix-row.undone .dict-fix-text b { color: #94a3b8; }
+    body.theme-white .dict-fix-btn {
+      border-color: #cbd5e1;
+      color: #475569;
+    }
+    body.theme-white .dict-fix-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+    /* 已修正小角标（result-title 后面） */
+    .dict-tag {
+      font-size: 11px;
+      color: #cbd5e1;
+      font-weight: 500;
+      margin-left: 6px;
+      opacity: 0.85;
+    }
+    body.theme-white .dict-tag { color: #64748b; }
+
+    .api-key-panel {
+      display: none;
+      flex-direction: column;
+      flex: 0 0 auto;
+      min-height: 0;
+      padding: 0 16px 10px;
+      overflow: visible;
+    }
+    .api-key-panel.show { display: flex; }
+    .api-key-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .api-key-step {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+    .api-key-lead {
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: #cbd5e1;
+      margin: 0;
+    }
+    .api-key-lead code {
+      font-size: 11.5px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .api-key-url {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.1);
+      color: #7dd3fc;
+      font-size: 12.5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-decoration: none;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s, border-color 0.12s;
+      -webkit-user-select: text;
+      user-select: text;
+      word-break: break-all;
+    }
+    .api-key-url:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.55);
+      color: #bae6fd;
+    }
+    .api-key-url::before {
+      content: "↗";
+      flex: 0 0 auto;
+      font-size: 14px;
+      opacity: 0.85;
+    }
+    .api-key-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.25);
+      color: #f8fafc;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      outline: none;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .api-key-input:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
+    .api-key-err { font-size: 12px; color: #fca5a5; min-height: 16px; margin: 0; }
+    body.theme-white .api-key-card {
+      background: #f8fafc;
+      border-color: #e5e7eb;
+    }
+    body.theme-white .api-key-step { color: #64748b; }
+    body.theme-white .api-key-lead { color: #475569; }
+    body.theme-white .api-key-lead code { background: #f1f5f9; }
+    body.theme-white .api-key-url {
+      background: #f0f9ff;
+      border-color: #bae6fd;
+      color: #0369a1;
+    }
+    body.theme-white .api-key-url:hover { background: #e0f2fe; }
+    body.theme-white .api-key-input {
+      background: #fff;
+      border-color: #e5e7eb;
+      color: #0f172a;
+    }
+    body.theme-white .api-key-err { color: #b91c1c; }
     .body h1, .body h2, .body h3 {
       color: #f1f5f9;
       font-weight: 800;
@@ -142,7 +553,24 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 16px 12px 16px;
+      flex-shrink: 0;
+      margin-top: auto;
+      padding: 10px 16px 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .actions.api-key-mode {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .actions.api-key-mode #btn-refine {
+      grid-column: 1 / -1;
+      justify-content: center;
+    }
+    .actions.api-key-mode .btn {
+      width: 100%;
+      justify-content: center;
     }
     .btn {
       display: inline-flex;
@@ -173,7 +601,37 @@
       border-color: transparent;
       color: #94a3b8;
     }
+    /* 齿轮按钮：放 actions 最右、靠近 spacer 之前；纯 icon，不抢主行动 */
+    .btn.icon-only {
+      width: 30px;
+      padding: 6px 0;
+      justify-content: center;
+      background: transparent;
+      border-color: transparent;
+      color: #64748b;
+      font-size: 14px;
+    }
+    .btn.icon-only:hover { color: #f1f5f9; background: rgba(255,255,255,0.08); }
     .btn.ghost:hover { color: #f1f5f9; background: rgba(255, 255, 255, 0.06); }
+    /* 「📚 笔记」开关：off 灰、on 蓝。点了立刻看效果（自动重精简） */
+    .btn.btn-toggle {
+      font-size: 11.5px;
+      padding: 6px 10px;
+      color: #94a3b8;
+      background: transparent;
+      border-color: rgba(255,255,255,0.08);
+    }
+    .btn.btn-toggle.on {
+      color: #7dd3fc;
+      background: rgba(56,189,248,0.08);
+      border-color: rgba(56,189,248,0.35);
+    }
+    body.theme-white .btn.btn-toggle { color: #64748b; border-color: #e5e7eb; }
+    body.theme-white .btn.btn-toggle.on {
+      color: #0369a1;
+      background: #eff8ff;
+      border-color: #cfe5fb;
+    }
     .spacer { flex: 1; }
 
     /* ===== 状态 3: Feedback ===== */
@@ -202,6 +660,42 @@
       overflow: hidden; text-overflow: ellipsis;
     }
     .feedback.err .ok { background: #dc2626; }
+
+    /* ===== v0.4.15 图片即附件归档：image mode ===== */
+    .img-mode {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .img-preview {
+      display: flex;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 8px;
+      min-height: 80px;
+    }
+    .img-preview img {
+      max-width: 100%;
+      max-height: 360px;
+      border-radius: 6px;
+      object-fit: contain;
+      display: block;
+      -webkit-user-drag: element;
+    }
+    .img-meta {
+      font-size: 11.5px;
+      color: #94a3b8;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+    body.theme-white .img-preview {
+      background: #f8fafc;
+      border-color: #e5e7eb;
+    }
+    body.theme-white .img-meta { color: #64748b; }
 
     /* 8 个拖拽 handle：4 边 + 4 角，仅 result 状态显示 */
     .rh {
@@ -267,6 +761,20 @@
     body.theme-white .head .target { color: #64748b; }
     body.theme-white .head .target-switch { color: #94a3b8; }
     body.theme-white .head .target-switch:hover { color: #0f172a; background: #f1f5f9; }
+    body.theme-white .head .target-switch.open { color: #0f172a; background: #e2e8f0; }
+    body.theme-white .target-popover {
+      background: #ffffff;
+      border-color: #e2e8f0;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    }
+    body.theme-white .target-popover .tp-hint { color: #94a3b8; }
+    body.theme-white .target-popover .tp-item { color: #334155; }
+    body.theme-white .target-popover .tp-item:hover { background: #f1f5f9; }
+    body.theme-white .target-popover .tp-item.current { color: #0f172a; }
+    body.theme-white .target-popover .tp-item .tp-dot { background: #cbd5e1; }
+    body.theme-white .target-popover .tp-item.current .tp-dot { background: #0284c7; }
+    body.theme-white .target-popover .tp-divider { background: #e2e8f0; }
+    body.theme-white .target-popover .tp-item.tp-pick { color: #64748b; }
     body.theme-white .head .close { color: #94a3b8; }
     body.theme-white .head .close:hover { background: #f1f5f9; color: #0f172a; }
 
@@ -301,6 +809,7 @@
       color: #64748b;
     }
     body.theme-white .btn.ghost:hover { color: #0f172a; background: #f1f5f9; }
+    body.theme-white .actions { border-top-color: #e5e7eb; }
 
     body.theme-white .feedback { color: #0f172a; }
     body.theme-white .rh:hover { background: rgba(15, 23, 42, 0.05); }
@@ -316,7 +825,7 @@
       <!-- 状态 1: Thinking -->
       <div class="thinking" id="thinking">
         <span class="spin"></span>
-        <span id="thinking-text">Thinking…</span>
+        <span id="thinking-text">thinking 中</span>
       </div>
 
       <!-- 状态 2: Result -->
@@ -324,18 +833,47 @@
         <div class="head">
           <span class="icon">i</span>
           <span class="title" id="result-title">AI 已精简</span>
-          <span class="target-wrap">
+          <span class="target-wrap" style="position: relative;">
             <span class="target" id="result-target"></span>
             <button class="target-switch" id="btn-switch-target" title="切换归档目标">›</button>
+            <div class="target-popover" id="target-popover" hidden>
+              <div class="tp-hint">切换默认归档文档</div>
+              <div id="tp-list"></div>
+              <div class="tp-divider"></div>
+              <button class="tp-item tp-pick" id="tp-pick"><span class="tp-dot"></span><span class="tp-name">📂 在 Finder 中选其他…</span></button>
+            </div>
           </span>
           <button class="close" id="btn-close" title="关闭 (Esc)">✕</button>
         </div>
         <div class="body" id="result-body"></div>
-        <div class="actions">
+        <div class="dict-fix" id="dict-fix" hidden></div>
+        <div class="kb-fb" id="kb-fb">
+          <span class="kb-fb-label" id="kb-fb-label">视角补充准吗？</span>
+          <button type="button" class="kb-fb-btn up" id="kb-fb-up" title="补充得准 / 有用">👍 准确</button>
+          <button type="button" class="kb-fb-btn down" id="kb-fb-down" title="补充不准 / 没用">👎 不准</button>
+          <span class="kb-fb-reasons" id="kb-fb-reasons">
+            <button type="button" class="kb-fb-chip" data-reason="wrong_link" title="引用的事实对不上">关联错误</button>
+            <button type="button" class="kb-fb-chip" data-reason="over_inference" title="原文没说，AI 自己脑补">过度解读</button>
+            <button type="button" class="kb-fb-chip" data-reason="stale" title="用了知识库里过时的信息">过时信息</button>
+          </span>
+          <span class="kb-fb-thx" id="kb-fb-thx" hidden>已记录，多谢</span>
+        </div>
+        <div class="api-key-panel" id="api-key-panel">
+          <div class="api-key-card">
+            <p class="api-key-step">STEP 1 · 申请 Key</p>
+            <a class="api-key-url" id="api-key-url" href="#" target="_blank" rel="noopener">https://platform.deepseek.com/api_keys</a>
+            <p class="api-key-step">STEP 2 · 粘贴 Key（sk- 开头）</p>
+            <input class="api-key-input" id="api-key-input" type="text" placeholder="sk-…" autocomplete="off" spellcheck="false" />
+            <div class="api-key-err" id="api-key-err"></div>
+          </div>
+        </div>
+        <div class="actions" id="actions">
+          <button class="btn btn-toggle" id="btn-kb" title="开启后让 AI 参考你的笔记 + 档案，慢但准；关闭走极速模式（默认）">📚 笔记 OFF</button>
           <button class="btn" id="btn-refine" title="重新让 AI 精简 (⌘R)">↻ 精简</button>
-          <button class="btn" id="btn-copy" title="把精简结果回写剪贴板 (⌘C)">⌘ 复制</button>
+          <button class="btn" id="btn-copy" title="只把精简结果回写剪贴板 (⌘C)">⌘ 仅复制</button>
+          <button class="btn icon-only" id="btn-open-dashboard" title="打开后台（设置 / 历史 / 知识库）">⚙</button>
           <span class="spacer"></span>
-          <button class="btn primary" id="btn-archive" title="写入默认文档 (↵)">📥 归档</button>
+          <button class="btn primary" id="btn-archive" title="写入默认文档 + 复制到剪贴板 (↵)">📥 归档+复制</button>
         </div>
       </div>
 
@@ -370,9 +908,12 @@
       }
 
       const SIZE = {
-        thinking: [200, 60],
+        thinking: [248, 60],
         result:   [520, 180],
+        apiKey:   [480, 300],
         feedback: [380, 60],
+        // v0.4.15 图片模式：480px 图 + padding + actions ≈ 560×420（autofit 仍会按真实图尺寸调）
+        image:    [560, 420],
       };
 
       const state = {
@@ -380,10 +921,73 @@
         mode: "polish",
         refined: "",
         target_label: "",
+        api_keys_url: "https://platform.deepseek.com/api_keys",
+        apiKeyMode: false,
+        dict_hits: [],
+        transcript_info: null,
+        length_info: null,
+        dup_info: null,
+        // v0.4.15 图片模式相关
+        image_path: "",
+        image_thumb_b64: "",
+        image_size_bytes: 0,
+        planned_rel: "",
+      };
+
+      function formatBytes(n) {
+        const v = Number(n) || 0;
+        if (v < 1024) return v + " B";
+        if (v < 1024 * 1024) return (v / 1024).toFixed(1) + " KB";
+        return (v / 1024 / 1024).toFixed(1) + " MB";
+      }
+
+      function fmtCharCount(n) {
+        const v = Number(n) || 0;
+        if (v >= 1000) return Math.round(v / 1000) + "K";
+        return String(v);
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      const BTN_LABELS = {
+        normal: {
+          refine: "↻ 精简",
+          copy: "⌘ 复制",
+          archive: "📥 归档",
+          refineTitle: "重新让 AI 精简 (⌘R)",
+          copyTitle: "把精简结果回写剪贴板 (⌘C)",
+          archiveTitle: "写入默认文档 (↵)",
+        },
+        apiKey: {
+          refine: "↻ 保存并精简",
+          copy: "⌘ 复制原文",
+          archive: "📥 归档原文",
+          refineTitle: "保存输入框中的 Key，然后开始 AI 精简",
+          copyTitle: "复制你刚选中的原文（不精简）",
+          archiveTitle: "不精简，直接把原文写入默认文档",
+        },
       };
 
       // 用户是否已经主动拖过任意 resize handle：true 后 autofit 不再改窗口尺寸
       let userResized = false;
+      // 整个窗口正被拖动（含 easy_drag 拖标题、拖 resize handle）；期间禁用 autofit 防闪
+      let isDragging = false;
+      // streaming autofit 节流，避免 50ms 一次 resize 引起跳动
+      let lastAutofitAt = 0;
+      const AUTOFIT_MIN_MS = 350;
+      const AUTOFIT_DELTA_MIN = 8;
+      let pendingAutofit = false;
+      document.addEventListener("mousedown", () => { isDragging = true; }, true);
+      document.addEventListener("mouseup",   () => {
+        isDragging = false;
+        if (pendingAutofit) { pendingAutofit = false; requestAnimationFrame(autofitResult); }
+      }, true);
 
       function show(which) {
         $("thinking").style.display = which === "thinking" ? "flex" : "none";
@@ -392,30 +996,77 @@
         const showHandles = which === "result";
         document.querySelectorAll(".rh").forEach((el) => el.classList.toggle("show", showHandles));
         const [w, h] = SIZE[which] || SIZE.result;
-        api().resize(w, h);
+        // 用 resize_to 而不是 resize：前者会读真实 NSWindow.frame() 做溢出预检，
+        // 必要时一次性把窗口往左/上挪到屏幕内，避免 macOS 视觉上的"先变宽再被弹回"闪烁
+        api().resize_to(w, h);
       }
 
       // ============ autofit：根据实际内容收/拉窗口高度 ============
+      // 注意：不能用 body.scrollHeight 量内容高 —— .body 是 flex:1 的拉伸子项，
+      // 窗口被流式中间帧撑高后 scrollHeight == 被撑大的 clientHeight，「只涨不缩」，
+      // 收尾内容变短时窗口卡在最大高度 → 下方大片空白。改量子元素的包络高度。
+      function measureBodyContentH(body) {
+        if (!body || body.style.display === "none") return 0;
+        const kids = body.children;
+        if (!kids.length) {
+          // 纯文本（错误信息等）：没有子元素，退回 scrollHeight（错误文案都很短，可接受）
+          return (body.textContent || "").trim() ? body.scrollHeight : 0;
+        }
+        const first = kids[0].getBoundingClientRect();
+        const last = kids[kids.length - 1].getBoundingClientRect();
+        const cs = window.getComputedStyle(body);
+        const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        return Math.ceil(last.bottom - first.top + pad);
+      }
+
       function autofitResult() {
         if (userResized) return;
+        if (isDragging) { pendingAutofit = true; return; }
         const result = $("result");
         if (!result.classList.contains("show")) return;
-        const head    = result.querySelector(".head");
+        const head = result.querySelector(".head");
         const actions = result.querySelector(".actions");
-        const body    = $("result-body");
-        const headH    = head ? head.offsetHeight : 0;
+        const body = $("result-body");
+        const apiPanel = $("api-key-panel");
+        const apiVisible = apiPanel && apiPanel.classList.contains("show");
+
+        if (apiVisible) {
+          const [w, h] = SIZE.apiKey;
+          api().resize_to(w, h);
+          SIZE.result = [w, h];
+          return;
+        }
+
+        const headH = head ? head.offsetHeight : 0;
         const actionsH = actions ? actions.offsetHeight : 0;
-        // body.scrollHeight = 内容自然高度（已含 body 自身 padding）
-        const bodyContentH = body ? body.scrollHeight : 0;
-        const ROOT_PAD = 12;        // .root padding 6 * 2
-        const BORDER   = 2;          // .capsule 1px 边框 * 2
-        const MAX_BODY_VISIBLE = 420;  // body 太长时窗口最高就到这
+        const bodyContentH = measureBodyContentH(body);
+        // body 之外的两个可见兄弟块（反馈条 / 疑似拼写卡）也占高度，漏算会被裁掉
+        const fbEl = $("kb-fb");
+        const fbH = (fbEl && fbEl.classList.contains("show")) ? fbEl.offsetHeight + 8 : 0;
+        const dictEl = $("dict-fix");
+        const dictH = (dictEl && !dictEl.hidden) ? dictEl.offsetHeight + 8 : 0;
+        const ROOT_PAD = 12;
+        const BORDER = 2;
+        const MAX_BODY_VISIBLE = 540;
         const visibleBodyH = Math.min(bodyContentH, MAX_BODY_VISIBLE);
-        let total = headH + visibleBodyH + actionsH + ROOT_PAD + BORDER + 4;
-        total = Math.max(140, Math.min(640, total));
+        let total = headH + visibleBodyH + fbH + dictH + actionsH + ROOT_PAD + BORDER + 4;
+        total = Math.max(140, Math.min(780, total));
         const w = SIZE.result[0];
+        // 抖动抑制：变化 < AUTOFIT_DELTA_MIN px 不下发
+        if (Math.abs(total - SIZE.result[1]) < AUTOFIT_DELTA_MIN) return;
         api().resize_to(w, total);
         SIZE.result = [w, total];
+        lastAutofitAt = Date.now();
+      }
+
+      // streaming 阶段调度：节流 + 不跨拖拽
+      function throttledAutofit() {
+        if (isDragging) { pendingAutofit = true; return; }
+        const wait = AUTOFIT_MIN_MS - (Date.now() - lastAutofitAt);
+        if (wait <= 0) { requestAnimationFrame(autofitResult); return; }
+        if (pendingAutofit) return;
+        pendingAutofit = true;
+        setTimeout(() => { pendingAutofit = false; requestAnimationFrame(autofitResult); }, wait);
       }
 
       // ============ 拖拽 resize（4 边 + 4 角）============
@@ -559,15 +1210,231 @@
         document.addEventListener("mouseup", onUp);
       })();
 
-      function setResult(body, ok, modeLabel) {
-        $("result-title").textContent = ok ? `AI · ${modeLabel}` : "AI 精简失败";
+      function isApiKeyError(msg) {
+        const s = (msg || "").trim();
+        return s === "NO_API_KEY" || /API\s*Key|未配置.*Key/i.test(s);
+      }
+
+      function setApiKeyMode(on) {
+        state.apiKeyMode = !!on;
+        const labels = on ? BTN_LABELS.apiKey : BTN_LABELS.normal;
+        $("btn-refine").textContent = labels.refine;
+        $("btn-refine").title = labels.refineTitle;
+        $("btn-copy").textContent = labels.copy;
+        $("btn-copy").title = labels.copyTitle;
+        $("btn-archive").textContent = labels.archive;
+        $("btn-archive").title = labels.archiveTitle;
+        $("btn-archive").classList.toggle("primary", !on);
+        $("btn-refine").classList.toggle("primary", on);
+        $("actions").classList.toggle("api-key-mode", on);
+      }
+
+      function showApiKeyPanel(show) {
+        $("api-key-panel").classList.toggle("show", !!show);
+        $("result-body").style.display = show ? "none" : "";
+        setApiKeyMode(!!show);
+        if (show) {
+          $("result-title").textContent = "需要 API Key";
+          $("api-key-err").textContent = "";
+          const url = state.api_keys_url || "https://platform.deepseek.com/api_keys";
+          $("api-key-url").textContent = url;
+          $("api-key-url").href = url;
+          if (!userResized) {
+            const [w, h] = SIZE.apiKey;
+            api().resize_to(w, h);
+            SIZE.result = [w, h];
+          }
+          requestAnimationFrame(() => requestAnimationFrame(autofitResult));
+          setTimeout(() => $("api-key-input").focus(), 120);
+        }
+      }
+
+      async function openApiKeysPage() {
+        try { await api().open_api_keys_page(); } catch (e) { /* ignore */ }
+      }
+
+      // 按第一个独占行的 `---` 把 AI 输出拆成精简正文 + 视角补充。
+      // 没分隔符 → 视为「全是精简」（兼容旧 prompt 输出）。
+      function splitMainAside(text) {
+        if (!text) return { main: "", aside: "" };
+        const m = text.match(/^\s*-{3,}\s*$/m);
+        if (!m) return { main: text, aside: "" };
+        return {
+          main: text.slice(0, m.index).trimEnd(),
+          aside: text.slice(m.index + m[0].length).trimStart(),
+        };
+      }
+
+      function setResult(body, ok, modeLabel, streaming) {
+        const demoTag = state.demo ? " · 演示" : "";
+        const kbTag = (state.kb_aware && state.kb_enabled) ? " · 已参考你的笔记" : "";
+        const dictTag = (state.dict_hits && state.dict_hits.length)
+          ? ` · 已修正 ${state.dict_hits.length} 处`
+          : "";
+        const ti = state.transcript_info;
+        const transcriptTag = (ti && ti.is_transcript)
+          ? ` · 会议 ${fmtCharCount(ti.orig_len)}→${fmtCharCount(ti.new_len)}`
+          : "";
+        const li = state.length_info;
+        const lengthTag = (li && li.any)
+          ? ` · 已收短`
+          : "";
+        const di = state.dup_info;
+        const dupTag = (di && di.human_ago)
+          ? ` · ${di.human_ago}重复`
+          : "";
+        // 耗时：流式跑完后才显示，不打扰 thinking 阶段。
+        // 格式：「· ⚡ 极速 · 1.8s · 首 0.6s」hover 看 prompt 字符数。
+        const tm = state.timings || {};
+        const modeTag = (tm.mode === "fast") ? " · ⚡ 极速" : "";
+        const perfTag = (!streaming && tm.total_ms != null)
+          ? ` · ${(tm.total_ms / 1000).toFixed(1)}s` +
+            (tm.first_ms != null ? ` · 首 ${(tm.first_ms / 1000).toFixed(1)}s` : "")
+          : "";
+        const perfTitle = (tm.prompt_chars != null)
+          ? `mode=${tm.mode || "full"} · prompt ${tm.prompt_chars} 字符 · 输入 ${tm.input_chars || 0} 字符 · 构建本地 ${tm.build_ms || 0}ms`
+          : "";
+        if (!ok && isApiKeyError(body)) {
+          showApiKeyPanel(true);
+          $("result-target").textContent = `→ ${state.target_label}`;
+          return;
+        }
+        showApiKeyPanel(false);
+        const resultTitle = $("result-title");
+        resultTitle.textContent = ok
+          ? `AI · ${modeLabel}${modeTag}${demoTag}${kbTag}${dictTag}${transcriptTag}${lengthTag}${dupTag}${perfTag}`
+          : "AI 精简失败";
+        resultTitle.title = perfTitle;
         $("result-body").classList.toggle("err", !ok);
+        let gatedAside = "";
         if (ok) {
-          $("result-body").innerHTML = window.renderMarkdown(body || "(空)");
+          const text = body || "(空)";
+          let { main, aside } = splitMainAside(text);
+          // 双保险：笔记 OFF（或本来就没 KB 上下文）时无条件不渲染视角补充卡。
+          // 即使 AI 违规输出了 `---` 段也直接丢弃（内部记录，便于排查），流式中间帧同样走这里。
+          const asideAllowed = !!(state.kb_aware && state.kb_enabled);
+          if (aside && !asideAllowed) {
+            state.dropped_aside = aside;
+            aside = "";
+          }
+          gatedAside = aside;
+          const cursor = streaming ? '<span class="stream-cursor">▍</span>' : "";
+          // 光标贴在最后正在生成的 card 上：有 aside 就在 aside 末尾，没有就在 main 末尾
+          const mainHtml = window.renderMarkdown(main || "(空)");
+          if (aside) {
+            const asideHtml = window.renderMarkdown(aside);
+            $("result-body").innerHTML =
+              `<div class="r-card r-main"><div class="r-label">📝 精简</div>${mainHtml}</div>` +
+              `<div class="r-card r-aside"><div class="r-label">💡 视角补充</div>${asideHtml}${cursor}</div>`;
+          } else {
+            $("result-body").innerHTML =
+              `<div class="r-card r-main"><div class="r-label">📝 精简</div>${mainHtml}${cursor}</div>`;
+          }
         } else {
           $("result-body").textContent = body || "(空)";
         }
         $("result-target").textContent = `→ ${state.target_label}`;
+
+        // 反馈条：仅在「真有视角补充被渲染」且非 streaming 时显示（gatedAside 已做过 kb_enabled gating）
+        const fb = $("kb-fb");
+        const hasAside = ok && !streaming && !!gatedAside;
+        if (hasAside) {
+          fb.classList.add("show");
+        } else {
+          fb.classList.remove("show");
+          fb.classList.remove("show-reasons");
+        }
+
+        // 路线 D：从最终输出里抽出「💡 疑似拼写：A → B」→ 自动入词典（auto）+ 可撤销
+        const dictFix = $("dict-fix");
+        if (ok && !streaming) {
+          const re = /^\s*💡\s*疑似拼写[：:]\s*(.+?)\s*[→\-\->]+\s*(.+?)\s*$/gm;
+          const matches = [];
+          const seen = new Set();
+          let m;
+          while ((m = re.exec(body || "")) !== null) {
+            const w = (m[1] || "").trim();
+            const r = (m[2] || "").trim();
+            if (!w || !r) continue;
+            const key = w + "→" + r;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            matches.push({ wrong: w, right: r });
+          }
+          // 把 result-body 里包含「💡 疑似拼写」的 p/li 节点删掉（避免重复展示）
+          $("result-body").querySelectorAll("p, li").forEach((node) => {
+            if (/💡\s*疑似拼写/.test(node.textContent || "")) {
+              node.remove();
+            }
+          });
+          if (matches.length) {
+            autoLearnHits(matches);
+          } else {
+            dictFix.innerHTML = "";
+            dictFix.hidden = true;
+          }
+        } else if (!streaming) {
+          dictFix.innerHTML = "";
+          dictFix.hidden = true;
+        }
+      }
+
+      // 自动把 AI 检测到的疑似拼写写进词典（source="auto"），并渲染成可撤销条目。
+      // 每条独立处理：失败的那条不渲染，成功的渲染成「⚡ 已自动学习」+ [撤销]。
+      async function autoLearnHits(matches) {
+        const dictFix = $("dict-fix");
+        dictFix.innerHTML = "";
+        dictFix.hidden = false;
+        // 占位：先渲染骨架，让用户看到反馈，再异步逐条写库
+        const rows = matches.map((it) => {
+          const row = document.createElement("div");
+          row.className = "dict-fix-row";
+          row.dataset.wrong = it.wrong;
+          row.dataset.right = it.right;
+          row.innerHTML = `
+            <span class="dict-fix-text"><span class="ico">⚡</span>正在学习：“<b>${escapeHtml(it.wrong)}</b>”<span class="arrow">→</span>“<b>${escapeHtml(it.right)}</b>”</span>
+          `;
+          dictFix.appendChild(row);
+          return row;
+        });
+        // 串行写库，避免并发时 json 文件互相覆盖
+        for (let i = 0; i < matches.length; i++) {
+          const it = matches[i];
+          const row = rows[i];
+          let res = null;
+          try {
+            res = await api().add_dictionary_entry(it.wrong, it.right, "auto");
+          } catch (e) { res = null; }
+          if (res && res.ok) {
+            row.innerHTML = `
+              <span class="dict-fix-text"><span class="ico">⚡</span>已自动学习：“<b>${escapeHtml(it.wrong)}</b>”<span class="arrow">→</span>“<b>${escapeHtml(it.right)}</b>”</span>
+              <button class="dict-fix-btn" type="button" data-undo="${escapeHtml(it.wrong)}">撤销</button>
+            `;
+          } else {
+            // 学习失败：直接隐去该行，别留半截状态
+            row.remove();
+          }
+        }
+        if (!dictFix.querySelector(".dict-fix-row")) {
+          dictFix.hidden = true;
+        }
+      }
+
+      async function onSaveApiKey() {
+        const key = ($("api-key-input").value || "").trim();
+        $("btn-refine").disabled = true;
+        $("api-key-err").textContent = "保存中…";
+        try {
+          const r = await api().save_api(key);
+          if (!r || !r.ok) {
+            $("api-key-err").textContent = (r && r.error) || "保存失败";
+            return;
+          }
+          showApiKeyPanel(false);
+          await runRefine(state.mode);
+        } finally {
+          $("btn-refine").disabled = false;
+        }
       }
 
       function showFeedback(msg, ok, autoCloseMs) {
@@ -582,66 +1449,122 @@
 
       let pollTimer = null;
       let thinkingTimer = null;
+      let thinkingWatchdog = null;
+      const THINKING_TIMEOUT_MS = 50000;
+
       function stopPolling() {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+        if (thinkingWatchdog) { clearInterval(thinkingWatchdog); thinkingWatchdog = null; }
       }
 
-      // thinking 渐进文案：让等待不无聊
+      // 按原文长度粗估首字等待时间（无真实 API ETA 时的体验兜底）
+      function estimateThinkingSeconds(textLen, modeId) {
+        const base = { polish: 5, structure: 9, i18n: 7, raw: 1 }[modeId] || 5;
+        const perChar = modeId === "structure" ? 0.004 : 0.002;
+        const est = Math.round(base + textLen * perChar);
+        return Math.max(3, Math.min(40, est));
+      }
+
+      function formatThinkingRemain(remainSec) {
+        if (remainSec <= 0) return "thinking 中 · 即将完成";
+        return `thinking 中 · 约剩 ${remainSec}s`;
+      }
+
       function startThinkingTicker(modeId) {
-        const labelMap = {
-          polish: ["AI 正在润色…", "整理段落…", "梳理重点…"],
-          structure: ["分析信噪比…", "提取关键信息…", "按主题归类…"],
-          i18n: ["识别语言…", "翻译中…", "调整表达…"],
-          raw: ["准备中…"],
-        };
-        const phases = labelMap[modeId] || labelMap.polish;
         const t0 = Date.now();
-        let i = 0;
+        const estimateSec = estimateThinkingSeconds((state.text || "").length, modeId);
         const tick = () => {
-          const sec = ((Date.now() - t0) / 1000).toFixed(1);
-          const phase = phases[Math.min(i, phases.length - 1)];
-          $("thinking-text").textContent = `${phase}  ${sec}s`;
+          const elapsed = (Date.now() - t0) / 1000;
+          let remain = Math.ceil(estimateSec - elapsed);
+          if (remain <= 0) {
+            // 超出预估时缓慢回落到 1s，避免长时间显示 0
+            remain = Math.max(1, 3 - Math.floor((elapsed - estimateSec) % 3));
+          }
+          $("thinking-text").textContent = formatThinkingRemain(remain);
         };
         tick();
-        thinkingTimer = setInterval(() => {
-          // 每 1.6s 推进一个 phase（最多到末尾）
-          if ((Date.now() - t0) > (i + 1) * 1600 && i < phases.length - 1) i++;
-          tick();
-        }, 100);
+        thinkingTimer = setInterval(tick, 200);
+      }
+
+      function isThinkingPlaceholder(text) {
+        const t = (text || "").trim();
+        return !t || t === "AI 精简中…";
+      }
+
+      function shouldLeaveThinking(p) {
+        if (!p) return false;
+        if (p.ok === false) return true;
+        if (!isThinkingPlaceholder(p.text)) return true;
+        return !!p.done;
       }
 
       async function runRefine(mode) {
         stopPolling();
         const m = mode || state.mode;
         show("thinking");
+        $("thinking-text").textContent = formatThinkingRemain(
+          estimateThinkingSeconds((state.text || "").length, m)
+        );
         startThinkingTicker(m);
-        await api().start_refine(m);
+        const t0 = Date.now();
+
+        thinkingWatchdog = setInterval(() => {
+          if (Date.now() - t0 < THINKING_TIMEOUT_MS) return;
+          stopPolling();
+          show("result");
+          setResult("请求超时：请检查网络，或在下方填写 API Key 后点「保存并精简」", false, "");
+          showApiKeyPanel(true);
+          $("api-key-err").textContent = "等待超过 50 秒仍未返回，可能是网络或 Key 无效";
+        }, 1000);
+
+        try {
+          await api().start_refine(m);
+        } catch (e) {
+          stopPolling();
+          show("result");
+          setResult("启动精简失败，请重试或填写 API Key", false, "");
+          showApiKeyPanel(true);
+          return;
+        }
 
         let switchedToResult = false;
-        let lastSeq = 0;
+        let lastSeq = -1;
         pollTimer = setInterval(async () => {
-          const p = await api().get_progress();
+          let p;
+          try { p = await api().get_progress(); } catch (e) { return; }
           if (!p) return;
           if (p.seq === lastSeq && !p.done) return;
           lastSeq = p.seq;
 
-          if (!switchedToResult && (p.text || p.done)) {
+          if (!switchedToResult && shouldLeaveThinking(p)) {
             switchedToResult = true;
             if (thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
             show("result");
           }
           if (switchedToResult) {
-            setResult(p.text || "", p.ok !== false, modeLabelOf(p.mode || m));
+            // 把 worker 跑 apply_dictionary 后填的 dict_hits 同步到 state，
+            // 这样标题角标「已修正 N 处」能在最终渲染时出现
+            if (Array.isArray(p.dict_hits)) state.dict_hits = p.dict_hits;
+            if (p.length_info) state.length_info = p.length_info;
+            if (p.transcript_info && p.transcript_info.is_transcript) {
+              state.transcript_info = p.transcript_info;
+            }
+            // 重复输入指纹是 worker 启动时算出来的，同步给标题角标
+            if (p.dup_info && p.dup_info.human_ago) {
+              state.dup_info = p.dup_info;
+            }
+            const body = isThinkingPlaceholder(p.text) ? "" : (p.text || "");
+            setResult(body || (p.done ? "(空)" : ""), p.ok !== false, modeLabelOf(p.mode || m), !p.done);
+            if (!p.done) throttledAutofit();
           }
 
           if (p.done) {
             stopPolling();
             state.refined = p.ok === false ? "" : (p.text || "");
-            // 等一帧让 markdown 渲染完，再 autofit
             requestAnimationFrame(() => requestAnimationFrame(autofitResult));
           }
-        }, 80);
+        }, 50);
       }
 
       function modeLabelOf(id) {
@@ -651,9 +1574,24 @@
 
       async function onArchive() {
         $("btn-archive").disabled = true;
-        const r = await api().archive();
-        if (r.ok) showFeedback(`已归档 → ${state.target_label}`, true, 1400);
-        else { showFeedback(r.error || "归档失败", false, 2000); }
+        try {
+          const r = await api().archive();
+          if (r.ok) {
+            // v0.4.11：归档同时回写剪贴板（一步到位粘贴别处用）。
+            // copy 失败不阻塞归档反馈——文件已写，是更重要的状态
+            let copyTag = "";
+            try {
+              const cr = await api().copy_result();
+              if (cr && cr.ok) copyTag = " · 已复制";
+            } catch (e) { /* 忽略 */ }
+            const asideTag = r.had_aside ? " · 📚 视角补充未归档" : "";
+            showFeedback(`已归档 → ${state.target_label}${copyTag}${asideTag}`, true, 1800);
+          } else {
+            showFeedback(r.error || "归档失败", false, 2000);
+          }
+        } finally {
+          $("btn-archive").disabled = false;
+        }
       }
 
       async function onCopy() {
@@ -662,52 +1600,371 @@
         else showFeedback(r.error || "复制失败", false, 2000);
       }
 
+      async function onRefineClick() {
+        if (state.apiKeyMode) await onSaveApiKey();
+        else await runRefine();
+      }
+
+      // 「📚 笔记参考」开关：渲染当前状态，并在点击时切换 + 自动重新精简（让用户立刻看到差异）
+      function renderKbBtn() {
+        const btn = $("btn-kb");
+        if (!btn) return;
+        const on = !!state.kb_enabled;
+        btn.classList.toggle("on", on);
+        btn.textContent = on ? "📚 笔记 ON" : "📚 笔记 OFF";
+      }
+      async function onKbToggle() {
+        const btn = $("btn-kb");
+        btn.disabled = true;
+        try {
+          const r = await api().toggle_kb();
+          if (r && r.ok) {
+            state.kb_enabled = !!r.kb_enabled;
+            renderKbBtn();
+            // 切换后立刻重精简一次，让用户看到差异（极速 ↔ 完整）
+            if (!state.apiKeyMode && !state.demo) {
+              await runRefine();
+            }
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      async function onCopyClick() {
+        await onCopy();
+      }
+
+      async function onArchiveClick() {
+        if (state.apiKeyMode) {
+          state.refined = "";
+          await onArchive();
+        } else {
+          await onArchive();
+        }
+      }
+
       async function onClose() {
         try { await api().close(); } catch (e) { /* close 强退后 JS 会拿不到响应 */ }
       }
 
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") { e.preventDefault(); onClose(); }
-        else if (e.key === "Enter") { e.preventDefault(); onArchive(); }
+        else if (e.key === "Enter" && !state.apiKeyMode) {
+          e.preventDefault();
+          // v0.4.15 图片模式走专用 handler；文本模式走原 onArchive
+          if (state.mode === "image") onArchiveImage();
+          else onArchive();
+        }
         else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
-          e.preventDefault(); runRefine();
+          e.preventDefault();
+          // 图片模式不调 AI，⌘R 没意义；维持现状（do nothing）即可
+          if (state.mode === "image") return;
+          if (state.apiKeyMode) onSaveApiKey();
+          else runRefine();
         }
         else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
-          e.preventDefault(); onCopy();
+          e.preventDefault();
+          if (state.mode === "image") onCopyImageNoop();
+          else onCopyClick();
         }
       });
 
-      $("btn-archive").onclick = onArchive;
-      $("btn-copy").onclick = onCopy;
-      $("btn-refine").onclick = () => runRefine();
-      $("btn-close").onclick = onClose;
+      $("btn-archive").onclick = onArchiveClick;
+      $("btn-copy").onclick = onCopyClick;
 
-      $("btn-switch-target").onclick = async () => {
-        const r = await api().pick_target();
+      // 视角补充轻反馈：👍 直接发送；👎 展开 3 个 reason chip，选一个再发
+      const REASON_LABEL = {
+        wrong_link: "关联错误",
+        over_inference: "过度解读",
+        stale: "过时信息",
+      };
+      async function sendKbFeedback(thumb, reason) {
+        const fb = $("kb-fb");
+        const upBtn = $("kb-fb-up");
+        const downBtn = $("kb-fb-down");
+        const thx = $("kb-fb-thx");
+        upBtn.classList.toggle("active", thumb === "up");
+        downBtn.classList.toggle("active", thumb === "down");
+        try {
+          const r = await api().mark_kb_feedback(thumb, reason || "");
+          if (r && r.ok) {
+            fb.classList.remove("show-reasons");
+            thx.hidden = false;
+            if (thumb === "up") {
+              thx.textContent = "已记录 · 多谢";
+            } else {
+              const label = REASON_LABEL[reason] || "";
+              const count = r.reason_count;
+              const learned = (count && count >= 3) ? " · 已学习" : "";
+              thx.textContent = label
+                ? `已记录「${label}」· 累计 ${count} 次${learned}`
+                : "已记录 · 会调";
+            }
+            setTimeout(() => { thx.hidden = true; }, 2400);
+          }
+        } catch (e) { /* 忽略 */ }
+      }
+      $("kb-fb-up").onclick = () => sendKbFeedback("up");
+      $("kb-fb-down").onclick = () => {
+        // 第一次点 👎 → 展开 reason chips；再点 → 收起（取消）
+        const fb = $("kb-fb");
+        fb.classList.toggle("show-reasons");
+      };
+      $("kb-fb-reasons").addEventListener("click", (e) => {
+        const chip = e.target.closest(".kb-fb-chip[data-reason]");
+        if (!chip || chip.disabled) return;
+        const reason = chip.getAttribute("data-reason");
+        if (!reason) return;
+        chip.disabled = true;
+        sendKbFeedback("down", reason);
+      });
+
+      // 路线 D：自动学习的疑似拼写条目 → 点「撤销」即从词典里删除
+      $("dict-fix").addEventListener("click", async (e) => {
+        const btn = e.target.closest(".dict-fix-btn[data-undo]");
+        if (!btn || btn.disabled) return;
+        const w = btn.getAttribute("data-undo");
+        if (!w) return;
+        const row = btn.closest(".dict-fix-row");
+        btn.disabled = true;
+        const orig = btn.textContent;
+        btn.textContent = "撤销中…";
+        try {
+          const res = await api().delete_dictionary_entry(w);
+          if (res && res.ok) {
+            if (row) {
+              row.classList.add("undone");
+              const txt = row.querySelector(".dict-fix-text");
+              if (txt) {
+                // 保留原文本但把前缀改成「已撤销」
+                txt.innerHTML = txt.innerHTML
+                  .replace(/已自动学习：/, "已撤销：")
+                  .replace(/正在学习：/, "已撤销：");
+              }
+            }
+            btn.remove();
+          } else {
+            btn.textContent = orig;
+            btn.disabled = false;
+          }
+        } catch (err) {
+          btn.textContent = orig;
+          btn.disabled = false;
+        }
+      });
+      $("btn-open-dashboard").onclick = async () => {
+        try {
+          const r = await api().open_dashboard();
+          if (r && r.ok) showFeedback("已打开后台", true, 900);
+          else showFeedback("打开失败：" + (r && r.error || "?"), false, 1500);
+        } catch (e) {
+          showFeedback("打开失败：" + (e && e.message || e), false, 1500);
+        }
+      };
+      $("btn-refine").onclick = onRefineClick;
+      $("btn-kb").onclick = onKbToggle;
+      $("btn-close").onclick = onClose;
+      $("api-key-url").addEventListener("click", (e) => {
+        e.preventDefault();
+        openApiKeysPage();
+      });
+      $("api-key-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); onSaveApiKey(); }
+      });
+
+      const tpBtn = $("btn-switch-target");
+      const tpPop = $("target-popover");
+      const tpList = $("tp-list");
+
+      function applySwitchResult(r) {
         if (r && r.ok) {
           state.target_label = r.target_label || r.target;
           $("result-target").textContent = `→ ${state.target_label}`;
+          showFeedback(`已切到「${state.target_label}」`, true, 1200);
         } else if (r && r.error) {
           showFeedback("切换失败：" + r.error, false, 1800);
         }
+      }
+
+      async function openTargetPopover() {
+        try {
+          const data = await api().list_targets();
+          const items = (data && data.items) || [];
+          tpList.innerHTML = "";
+          if (!items.length) {
+            const empty = document.createElement("div");
+            empty.className = "tp-hint";
+            empty.style.padding = "6px 10px 8px";
+            empty.textContent = "暂无最近文档";
+            tpList.appendChild(empty);
+          } else {
+            items.forEach((it) => {
+              const btn = document.createElement("button");
+              btn.className = "tp-item" + (it.current ? " current" : "");
+              btn.title = it.display || it.raw;
+              btn.innerHTML = `<span class="tp-dot"></span><span class="tp-name"></span>`;
+              btn.querySelector(".tp-name").textContent = it.label || it.raw;
+              btn.onclick = async () => {
+                closeTargetPopover();
+                if (it.current) return;
+                const r = await api().switch_target_to(it.raw);
+                applySwitchResult(r);
+              };
+              tpList.appendChild(btn);
+            });
+          }
+          tpPop.hidden = false;
+          tpBtn.classList.add("open");
+        } catch (e) {
+          showFeedback("加载失败：" + (e && e.message || e), false, 1500);
+        }
+      }
+      function closeTargetPopover() {
+        tpPop.hidden = true;
+        tpBtn.classList.remove("open");
+      }
+      tpBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (tpPop.hidden) openTargetPopover();
+        else closeTargetPopover();
       };
+      $("tp-pick").onclick = async (e) => {
+        e.stopPropagation();
+        closeTargetPopover();
+        const r = await api().pick_target();
+        applySwitchResult(r);
+      };
+      document.addEventListener("click", (e) => {
+        if (tpPop.hidden) return;
+        if (tpPop.contains(e.target) || tpBtn.contains(e.target)) return;
+        closeTargetPopover();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !tpPop.hidden) {
+          e.stopPropagation();
+          closeTargetPopover();
+        }
+      }, true);
+
+      // ============ v0.4.15 图片即附件归档：image 模式 ============
+      // 不调 AI、不动剪贴板。用户主动点「📥 归档+复制」才落盘到 attachments/。
+      function enterImageMode(p) {
+        state.image_path = p.image_path || "";
+        state.image_thumb_b64 = p.image_thumb_b64 || "";
+        state.image_size_bytes = p.image_size_bytes || 0;
+        state.planned_rel = p.planned_rel || "";
+
+        // 隐藏所有文本相关 UI
+        $("btn-kb").style.display = "none";
+        $("btn-refine").style.display = "none";
+        $("kb-fb").style.display = "none";
+        $("dict-fix").hidden = true;
+        $("api-key-panel").classList.remove("show");
+
+        // 标题 / 元数据
+        $("result-title").textContent = "📷 图片归档";
+        $("result-title").title = "";
+        $("result-target").textContent = `→ ${state.target_label}`;
+
+        // 图片预览源：优先 base64 缩略图（前端零额外 IO），失败回退 file:// 原图
+        let imgSrc = "";
+        if (state.image_thumb_b64) {
+          imgSrc = "data:image/png;base64," + state.image_thumb_b64;
+        } else if (state.image_path) {
+          // file:// URL 必须做 path-encoding（含中文 / 空格的目录名很常见）
+          imgSrc = "file://" + state.image_path.split("/").map(encodeURIComponent).join("/");
+        }
+
+        const sizeStr = formatBytes(state.image_size_bytes);
+        const meta = `来源剪贴板 · ${sizeStr} · 拟保存到 ${state.planned_rel}`;
+        $("result-body").classList.remove("err");
+        $("result-body").innerHTML = `
+          <div class="img-mode">
+            <div class="img-preview">${imgSrc ? `<img src="${imgSrc}" alt="剪贴板图片">` : "（无法预览）"}</div>
+            <div class="img-meta">${escapeHtml(meta)}</div>
+          </div>
+        `;
+
+        // 重写两个按钮：💡 archive 走 archive_image；copy 走 copy_image_noop（剪贴板原样保留）
+        const btnArc = $("btn-archive");
+        btnArc.textContent = "📥 归档+复制";
+        btnArc.title = "把图片归档到 attachments/，剪贴板里仍是原图 (↵)";
+        btnArc.classList.add("primary");
+        const btnCpy = $("btn-copy");
+        btnCpy.textContent = "⌘ 仅复制";
+        btnCpy.title = "什么都不做——剪贴板里本来就是这张图";
+
+        // 先把 SIZE.result 调到图片模式期望尺寸，再 show("result")，避免两次连续 resize 视觉抖动
+        SIZE.result = SIZE.image.slice();
+        show("result");
+        requestAnimationFrame(() => requestAnimationFrame(autofitResult));
+      }
+
+      async function onArchiveImage() {
+        const btn = $("btn-archive");
+        btn.disabled = true;
+        try {
+          const r = await api().archive_image();
+          if (r && r.ok) {
+            showFeedback(`已归档 → ${state.target_label}`, true, 1500);
+          } else {
+            showFeedback((r && r.error) || "归档失败", false, 2200);
+          }
+        } catch (e) {
+          showFeedback("归档失败：" + (e && e.message || e), false, 2000);
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      async function onCopyImageNoop() {
+        try { await api().copy_image_noop(); } catch (e) { /* ignore */ }
+        showFeedback("剪贴板已是这张图", true, 900);
+      }
 
       waitForApi().then(async (a) => {
         const p = await a.get_payload();
+        state.target_label = p.target_label || "默认文档";
+        document.body.classList.toggle("theme-white", (p.theme || "dark") === "white");
+
+        // v0.4.15：图片模式与文本模式完全独立，提前 short-circuit
+        if (p.mode === "image") {
+          state.mode = "image";
+          // 改写按钮的 onclick 到图片专用 handler（避免 onArchive/onCopy 走文本逻辑）
+          $("btn-archive").onclick = onArchiveImage;
+          $("btn-copy").onclick = onCopyImageNoop;
+          enterImageMode(p);
+          return;
+        }
+
         state.text = p.text || "";
         state.mode = p.mode || "polish";
-        state.target_label = p.target_label || "默认文档";
+        state.demo = !!p.demo;
+        state.api_keys_url = p.api_keys_url || state.api_keys_url;
+        state.kb_aware = !!p.kb_aware;
+        state.kb_label = p.kb_label || "";
+        state.kb_enabled = !!p.kb_enabled;
+        renderKbBtn();
+        state.dict_hits = p.dict_hits || [];
+        state.transcript_info = (p.transcript_info && p.transcript_info.is_transcript)
+          ? p.transcript_info
+          : null;
+        state.dup_info = (p.dup_info && p.dup_info.human_ago) ? p.dup_info : null;
         if (p.saved_size && p.saved_size.length === 2) {
           // 只保留用户横向宽度偏好，高度交给 autofit
           SIZE.result = [p.saved_size[0], 180];
         }
-        // 主题：dark（默认）/ white
-        document.body.classList.toggle("theme-white", (p.theme || "dark") === "white");
-        $("thinking-text").textContent = "Thinking…";
+        $("thinking-text").textContent = "thinking 中";
         if (state.mode === "raw") {
           state.refined = state.text;
           setResult(state.text, true, "原文");
           show("result");
+          requestAnimationFrame(() => requestAnimationFrame(autofitResult));
+        } else if (!state.demo && !p.has_key) {
+          show("result");
+          showApiKeyPanel(true);
+          $("result-target").textContent = `→ ${state.target_label}`;
           requestAnimationFrame(() => requestAnimationFrame(autofitResult));
         } else {
           await runRefine(state.mode);

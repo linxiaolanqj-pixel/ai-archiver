@@ -28,11 +28,13 @@ from pathlib import Path
 
 import webview
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-QUICK_UI = SCRIPT_DIR / "quick"
-PY = str(SCRIPT_DIR / ".venv/bin/python") if (SCRIPT_DIR / ".venv/bin/python").exists() else sys.executable
-ARCHIVER_PY = SCRIPT_DIR / "archiver.py"
-PROMPTS_DIR = SCRIPT_DIR / "prompts"
+from app_paths import data_dir, resource_dir
+
+SCRIPT_DIR = resource_dir()
+QUICK_UI = resource_dir() / "quick"
+PY = str(resource_dir() / ".venv/bin/python") if (resource_dir() / ".venv/bin/python").exists() else sys.executable
+ARCHIVER_PY = resource_dir() / "archiver.py"
+PROMPTS_DIR = resource_dir() / "prompts"
 
 from history import bump_archived, record_text  # noqa: E402
 from settings_util import (  # noqa: E402
@@ -72,7 +74,7 @@ def md_to_plain(md: str) -> str:
 
 
 def _load_env() -> None:
-    env = SCRIPT_DIR / ".env"
+    env = data_dir() / ".env"
     if not env.exists():
         return
     for line in env.read_text(encoding="utf-8").splitlines():
@@ -84,11 +86,26 @@ def _load_env() -> None:
 
 
 def _read_clip() -> str:
+    """v0.4.15：从剪贴板读纯文本，**绝不调 pbpaste**。
+
+    pbpaste 在剪贴板带图片时会触发 macOS 图→文转换，每次都卡几秒；
+    胶囊冷启动里只调一次也照样会拖体感。这里直接用 NSPasteboard 的
+    `stringForType_` —— 是图片就返回 ""，零等待。
+
+    AppKit 在打包后必然存在；万一开发态环境异常 import 失败，再走
+    pbpaste 兜底（保留兼容性，不让胶囊裸退）。
+    """
     try:
-        r = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=5)
-        return r.stdout
+        from AppKit import NSPasteboard, NSPasteboardTypeString
+        pb = NSPasteboard.generalPasteboard()
+        s = pb.stringForType_(NSPasteboardTypeString)
+        return s if s else ""
     except Exception:
-        return ""
+        try:
+            r = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=5)
+            return r.stdout
+        except Exception:
+            return ""
 
 
 def _notify(title: str, body: str) -> None:
@@ -127,14 +144,37 @@ def _deepseek_model_cfg() -> tuple[str, str, str]:
     return key, url, model
 
 
-def _call_deepseek_stream(system: str, user: str, *, timeout: int = 120):
-    """SSE 流式生成器：yield ('chunk', text) 或 ('error', msg)。"""
+def _call_deepseek_stream(
+    system: str,
+    user: str,
+    *,
+    timeout: int = 45,
+    max_tokens: int = 800,
+    first_chunk_timeout: int = 15,
+    idle_chunk_timeout: int = 25,
+):
+    """SSE 流式生成器：yield ('chunk', text) 或 ('error', msg)。
+
+    v0.4.8 重写：之前用 `urlopen` + `fp.raw._sock` hack 设 timeout，但这路径在
+    PyInstaller 打包后 / 某些 Python 版本上拿不到底层 socket，settimeout **静默
+    失败**，结果胶囊「一直 thinking 无 error」。
+
+    现在改用 `http.client.HTTPSConnection`，`conn.sock` 是显式 attribute，
+    100% 可控：
+    - 建连超时由 HTTPSConnection(timeout=...) 控制
+    - 建连后 conn.sock.settimeout(first_chunk_timeout) 控制首 chunk 等待
+    - 收到首 chunk 后改成 idle_chunk_timeout（给生成阶段宽松一点）
+    """
+    import http.client
+    import socket as _socket
+    import urllib.parse as _urlparse
+
     key, url, model = _deepseek_model_cfg()
     if not key.startswith("sk-"):
-        yield ("error", "未配置 DeepSeek API Key（菜单栏 → 设置 API Key）")
+        yield ("error", "NO_API_KEY")
         return
 
-    payload = {
+    payload = json.dumps({
         "model": model,
         "messages": [
             {"role": "system", "content": system},
@@ -142,31 +182,78 @@ def _call_deepseek_stream(system: str, user: str, *, timeout: int = 120):
         ],
         "temperature": 0.4,
         "stream": True,
-        "max_tokens": 800,  # 防止冗长输出，覆盖典型笔记长度
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-    )
+        "max_tokens": max_tokens,
+        # v0.4.14：要求 DeepSeek 在最后一帧返回 usage（含 prompt_cache_hit_tokens
+        # / prompt_cache_miss_tokens），用于监控 prefix cache 命中率。
+        "stream_options": {"include_usage": True},
+    }).encode("utf-8")
+
+    parsed = _urlparse.urlparse(url)
+    host = parsed.netloc
+    path = parsed.path or "/"
+    if parsed.query:
+        path += "?" + parsed.query
+
+    if parsed.scheme == "http":
+        conn = http.client.HTTPConnection(host, timeout=timeout)
+    else:
+        conn = http.client.HTTPSConnection(host, timeout=timeout)
+
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            for raw in r:
-                line = raw.decode("utf-8", errors="replace").strip()
-                if not line.startswith("data:"):
-                    continue
-                data_str = line[len("data:"):].strip()
-                if not data_str or data_str == "[DONE]":
-                    continue
-                try:
-                    obj = json.loads(data_str)
-                    delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content", "")
-                    if delta:
-                        yield ("chunk", delta)
-                except Exception:
-                    continue
+        conn.connect()
+        conn.sock.settimeout(first_chunk_timeout)
+        conn.request(
+            "POST", path, body=payload,
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
+        )
+        r = conn.getresponse()
+        if r.status != 200:
+            err_body = r.read(500).decode("utf-8", errors="replace")
+            yield ("error", f"HTTP {r.status}: {err_body[:120]}")
+            return
+
+        got_first = False
+        while True:
+            try:
+                raw = r.readline()
+            except (TimeoutError, _socket.timeout):
+                phase = "首 chunk" if not got_first else "后续 chunk"
+                limit = first_chunk_timeout if not got_first else idle_chunk_timeout
+                yield ("error", f"流式超时（{phase}等待 >{limit}s）：DeepSeek 假活")
+                return
+            if not raw:
+                break
+            if not got_first:
+                got_first = True
+                conn.sock.settimeout(idle_chunk_timeout)
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data_str = line[len("data:"):].strip()
+            if not data_str or data_str == "[DONE]":
+                continue
+            try:
+                obj = json.loads(data_str)
+                # v0.4.14：DeepSeek 在 stream_options.include_usage=true 时，最后一帧
+                # 的 choices=[]，但带 usage 字段（prompt_cache_hit_tokens / *_miss_tokens）
+                usage = obj.get("usage")
+                if isinstance(usage, dict):
+                    yield ("usage", usage)
+                delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content", "")
+                if delta:
+                    yield ("chunk", delta)
+            except Exception:
+                continue
     except Exception as e:
         yield ("error", f"请求失败：{type(e).__name__} {str(e)[:120]}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def _call_deepseek(system: str, user: str, *, timeout: int = 90) -> tuple[bool, str]:
@@ -175,7 +262,7 @@ def _call_deepseek(system: str, user: str, *, timeout: int = 90) -> tuple[bool, 
     model_cfg = models.get(cfg.get("provider", "deepseek"), models.get("deepseek", {})) or {}
     key = os.environ.get(model_cfg.get("api_key_env", "DEEPSEEK_API_KEY"), "")
     if not key.startswith("sk-"):
-        return False, "未配置 DeepSeek API Key（菜单栏 → 设置 API Key）"
+        return False, "NO_API_KEY"
     url = model_cfg.get("base_url") or "https://api.deepseek.com/v1/chat/completions"
     model = model_cfg.get("model") or "deepseek-chat"
 
@@ -274,7 +361,7 @@ class QuickApi:
 
         try:
             r = subprocess.run(
-                cmd, input=write_text, capture_output=True, text=True, timeout=60, cwd=str(SCRIPT_DIR),
+                cmd, input=write_text, capture_output=True, text=True, timeout=60, cwd=str(data_dir()),
                 env=os.environ.copy(),
             )
         except subprocess.TimeoutExpired:

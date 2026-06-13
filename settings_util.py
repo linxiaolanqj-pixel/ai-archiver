@@ -10,10 +10,14 @@ from typing import Any
 
 import yaml
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = SCRIPT_DIR / "config.yaml"
-STATE_PATH = SCRIPT_DIR / ".state.json"
-ENV_PATH = SCRIPT_DIR / ".env"
+from app_paths import config_path, data_dir, ensure_data_subdirs, resource_dir
+
+SCRIPT_DIR = resource_dir()  # 兼容旧代码：指向资源根（开发=项目目录，打包=_MEIPASS）
+CONFIG_PATH = config_path()
+STATE_PATH = data_dir() / ".state.json"
+ENV_PATH = data_dir() / ".env"
+
+ensure_data_subdirs()
 
 DEEPSEEK_API_KEYS_URL = "https://platform.deepseek.com/api_keys"
 
@@ -30,11 +34,16 @@ BUILTIN_SKIP_PATTERNS = [
 
 
 def load_config() -> dict[str, Any]:
+    global CONFIG_PATH
+    CONFIG_PATH = config_path()
     with CONFIG_PATH.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
 def save_config(cfg: dict[str, Any]) -> None:
+    global CONFIG_PATH
+    CONFIG_PATH = config_path()
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with CONFIG_PATH.open("w", encoding="utf-8") as f:
         yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
@@ -46,6 +55,68 @@ def load_state() -> dict[str, Any]:
         return json.loads(STATE_PATH.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def auto_prompt_enabled() -> bool:
+    """复制即弹胶囊（⌘C 监听），默认开启 —— 这是主路径。"""
+    state = load_state()
+    if "auto_prompt_enabled" in state:
+        return bool(state["auto_prompt_enabled"])
+    return True
+
+
+# 主路径是「⌘C 复制 → 剪贴板监听 → 弹胶囊」（⌘C 系统先吃没法当全局 hotkey，
+# 这里这个值只是文案上的"默认快捷键"，实际由 auto_prompt_enabled 触发）。
+DEFAULT_INPUT_HOTKEY = "⌘C"
+
+
+def hotkey_enabled() -> bool:
+    """全局快捷键监听开关。默认开启用作 ⌘C 之外的备份键。"""
+    return bool(load_state().get("hotkey_enabled", True))
+
+
+def migrate_state_defaults() -> None:
+    """默认：⌘C 复制即弹胶囊；全局 hotkey 字段记 ⌘C 仅作文案对齐。"""
+    state = load_state()
+    changed = False
+    if "auto_prompt_enabled" not in state:
+        state["auto_prompt_enabled"] = True
+        changed = True
+    # v3 迁移：之前曾把 auto_prompt_enabled 自动关掉，这里一次性还原
+    if not state.get("_migrated_copy_v3"):
+        state["auto_prompt_enabled"] = True
+        state["prefer_copy_mode"] = True
+        state["_migrated_copy_v3"] = True
+        changed = True
+    if not state.get("hotkey_enabled", True):
+        state["hotkey_enabled"] = True
+        changed = True
+    # v4 迁移：把"备份 hotkey 字段"从 ⌘E 统一到 ⌘C，跟文案一致
+    hk = dict(state.get("hotkeys") or {})
+    inp = dict(hk.get("input") or {})
+    if not inp.get("shortcut") or inp.get("shortcut") in ("⌃⌥E", "⇧⌘E", "⌘E"):
+        inp["shortcut"] = DEFAULT_INPUT_HOTKEY
+        changed = True
+    inp["name"] = inp.get("name") or "弹胶囊"
+    state["hotkeys"] = {"input": inp}
+    if hk.get("translate") or hk.get("ask"):
+        changed = True
+    # v5 迁移：老用户存档里 auto_prompt_max_length=2500 把长会议转录全拦了，升到 20000
+    # 只动一次，用户后来若主动改回 2500 不再覆盖
+    if not state.get("_migrated_max_v2"):
+        try:
+            cfg = load_config()
+            beh = cfg.get("behavior", {}) or {}
+            if int(beh.get("auto_prompt_max_length", 0) or 0) == 2500:
+                beh["auto_prompt_max_length"] = 20000
+                cfg["behavior"] = beh
+                save_config(cfg)
+        except Exception:
+            pass
+        state["_migrated_max_v2"] = True
+        changed = True
+    if changed:
+        save_state(state)
 
 
 def save_state(state: dict[str, Any]) -> None:
@@ -116,17 +187,9 @@ def remove_skip(pattern: str, *, scope: str = "manual") -> bool:
 def get_hotkeys() -> dict[str, dict[str, str]]:
     state = load_state()
     hk = state.get("hotkeys") or {}
-    defaults = {
-        "input": {"name": "精简", "shortcut": "⌃⌥⌘A", "cmd": "~/tools/ai-archiver/run.sh quick"},
-        "translate": {"name": "AI 转译", "shortcut": "⌃⌥⌘T", "cmd": "~/tools/ai-archiver/run.sh translate polish"},
-        "ask": {"name": "随便问", "shortcut": "⌃⌥⌘Q", "cmd": "~/tools/ai-archiver/run.sh ask"},
-    }
-    for k, v in defaults.items():
-        cur = hk.get(k) or {}
-        defaults[k] = {**v, **cur}
-    if defaults["translate"].get("cmd") == "~/tools/ai-archiver/run.sh translate":
-        defaults["translate"]["cmd"] = "~/tools/ai-archiver/run.sh translate polish"
-    return defaults
+    inp = dict(hk.get("input") or {})
+    default = {"name": "弹胶囊", "shortcut": DEFAULT_INPUT_HOTKEY}
+    return {"input": {**default, **inp}}
 
 
 def set_hotkey(key: str, *, name: str | None = None, shortcut: str | None = None) -> dict:
@@ -156,17 +219,28 @@ _CODE_SIGNS = [
 
 
 def looks_like_code(text: str) -> bool:
-    """启发式：复制内容像不像代码 / 长配置 / 命令。"""
+    """启发式：复制内容像不像代码 / 长配置 / 命令。
+
+    中文笔记里常出现：表格 `|---|`、列表 `• item`、缩进的子条目，
+    这些都不算代码。判定时先看中文占比，再看代码特征。
+    """
     t = text.strip()
     if not t:
         return False
     if "```" in t:
-        return True
+        # markdown 笔记里也常贴 ```bash 这种围栏代码块 → 看比例而非一刀切
+        fenced = re.findall(r"```[\s\S]*?```", t)
+        if fenced and sum(len(f) for f in fenced) / max(len(t), 1) > 0.6:
+            return True
+    # 中文占比 ≥ 25% → 当作中文内容（含 markdown 笔记），不再判代码
+    cjk = sum(1 for c in t if "\u4e00" <= c <= "\u9fff")
+    if cjk / max(len(t), 1) >= 0.25:
+        return False
     lines = [ln for ln in t.splitlines() if ln.strip()]
     if len(lines) < 3:
         return False
     indented = sum(1 for ln in lines if ln.startswith((" " * 2, "\t")))
-    if indented / len(lines) >= 0.4:
+    if indented / len(lines) >= 0.65:
         return True
     hits = 0
     sample = lines[:80]
@@ -315,6 +389,12 @@ def _repair_state_targets(state: dict[str, Any]) -> bool:
 def mark_onboarding_done(*, default_target: str | None = None) -> None:
     state = load_state()
     state["onboarding_complete"] = True
+    state["auto_prompt_enabled"] = True
+    state["hotkey_enabled"] = True
+    state["prefer_copy_mode"] = True
+    state["hotkeys"] = {
+        "input": {"name": "弹胶囊", "shortcut": DEFAULT_INPUT_HOTKEY},
+    }
     rel = _sanitize_target_rel(default_target)
     if rel:
         set_default_target(rel, state=state)
@@ -338,6 +418,22 @@ def get_capsule_size() -> tuple[int, int] | None:
 def set_capsule_size(w: int, h: int) -> None:
     s = load_state()
     s["capsule_size"] = {"w": int(w), "h": int(h)}
+    save_state(s)
+
+
+def get_capsule_kb_enabled() -> bool:
+    """胶囊「📚 笔记参考」开关。默认 False — 快是默认体验，需要 KB 时显式开。
+
+    开启后胶囊会注入 KB 节选 + 三层档案 + 视角补充指令，prompt 体积 ~6500 字（5-8s）；
+    关闭则走极速模式 prompt ~1300 字（1-3s）。
+    """
+    s = load_state()
+    return bool(s.get("capsule_kb_enabled", False))
+
+
+def set_capsule_kb_enabled(enabled: bool) -> None:
+    s = load_state()
+    s["capsule_kb_enabled"] = bool(enabled)
     save_state(s)
 
 
@@ -468,13 +564,94 @@ ONBOARDING_MD_CHOICES: list[tuple[str, str]] = [
 ]
 
 
-def get_api_key() -> str:
-    if ENV_PATH.exists():
-        for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("DEEPSEEK_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
+def _read_key_from_env_file(path: Path, var: str = "DEEPSEEK_API_KEY") -> str:
+    if not path.exists():
+        return ""
+    prefix = f"{var}="
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith(prefix):
+            return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+def get_user_api_key() -> str:
+    """用户自己在菜单栏 / 引导里配置的 Key（优先级最高）。"""
+    key = _read_key_from_env_file(ENV_PATH)
+    if key:
+        return key
     return os.environ.get("DEEPSEEK_API_KEY", "").strip()
+
+
+def get_platform_api_key() -> str:
+    """开发者打包时内置的 Key，供所有用户免费试用（暂不投币）。"""
+    try:
+        from platform_crypto import read_encrypted_key
+    except Exception:
+        read_encrypted_key = None  # type: ignore
+
+    enc_paths: list[Path] = []
+    plain_paths: list[Path] = []
+    try:
+        root = resource_dir()
+        enc_paths.append(root / "platform.key.enc")
+        plain_paths.append(root / "platform.env")
+    except Exception:
+        pass
+    enc_paths.append(SCRIPT_DIR / "secrets" / "platform.key.enc")
+    plain_paths.append(SCRIPT_DIR / "secrets" / "platform.env")
+
+    if read_encrypted_key:
+        for p in enc_paths:
+            key = read_encrypted_key(p)
+            if key.startswith("sk-"):
+                return key
+    for p in plain_paths:
+        key = _read_key_from_env_file(p)
+        if key.startswith("sk-"):
+            return key
+    return ""
+
+
+def get_api_key() -> str:
+    """用户 Key > 内置平台 Key > 环境变量。"""
+    user = get_user_api_key()
+    if user.startswith("sk-"):
+        return user
+    platform = get_platform_api_key()
+    if platform.startswith("sk-"):
+        os.environ.setdefault("DEEPSEEK_API_KEY", platform)
+        return platform
+    return os.environ.get("DEEPSEEK_API_KEY", "").strip()
+
+
+def has_api_key() -> bool:
+    k = (get_api_key() or "").strip()
+    return k.startswith("sk-") and len(k) >= 20
+
+
+def api_key_status() -> dict[str, Any]:
+    """给引导 / 胶囊 / 后台用的统一状态。"""
+    user = (get_user_api_key() or "").strip()
+    platform = (get_platform_api_key() or "").strip()
+    active = (get_api_key() or "").strip()
+    ok = active.startswith("sk-") and len(active) >= 10
+    masked = ""
+    if ok and len(active) > 10:
+        masked = active[:5] + "…" + active[-4:]
+    if user.startswith("sk-"):
+        source = "user"
+    elif platform.startswith("sk-"):
+        source = "platform"
+    else:
+        source = "none"
+    return {
+        "has_key": ok,
+        "masked": masked,
+        "source": source,
+        "platform_provided": platform.startswith("sk-") and not user.startswith("sk-"),
+        "free_tier": platform.startswith("sk-"),
+    }
 
 
 def save_api_key(key: str) -> None:
