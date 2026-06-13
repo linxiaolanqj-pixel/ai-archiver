@@ -29,8 +29,14 @@ from typing import Any
 import yaml  # 需要 pip install pyyaml
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = SCRIPT_DIR / "config.yaml"
+try:
+    from app_paths import config_path, resource_dir
+
+    SCRIPT_DIR = resource_dir()
+    CONFIG_PATH = config_path()
+except ImportError:
+    SCRIPT_DIR = Path(__file__).resolve().parent
+    CONFIG_PATH = SCRIPT_DIR / "config.yaml"
 
 
 # ----------------------------- 通用工具 -----------------------------
@@ -73,6 +79,8 @@ def _read_text(args: argparse.Namespace) -> str:
     if args.from_stdin:
         return sys.stdin.read()
     if args.from_clipboard:
+        # 此分支只在用户**手动**跑 `archiver.py xxx --from-clipboard` 时进入
+        # （cli 调试场景，非热路径）。保留 pbpaste 避免给独立脚本引 AppKit 重型依赖。
         try:
             out = subprocess.run(["pbpaste"], check=True, capture_output=True, text=True)
             return out.stdout
@@ -232,11 +240,10 @@ def _append_to_section(target: Path, section_heading: str, body: str) -> None:
     content = target.read_text(encoding="utf-8")
     block = f"\n{body.rstrip()}\n"
 
-    if section_heading in content:
-        # 找到 section，把内容插到它的下一个同级或更高级 heading 之前
-        lines = content.splitlines()
-        idx = next(i for i, ln in enumerate(lines) if ln.strip() == section_heading)
-        # 当前 heading 的层级
+    lines = content.splitlines()
+    # 严格按整行匹配（避免「## 今日」子串误中「## 今日待办」之类）
+    idx = next((i for i, ln in enumerate(lines) if ln.strip() == section_heading), -1)
+    if idx >= 0:
         cur_level = len(section_heading) - len(section_heading.lstrip("#"))
         insert_at = len(lines)
         for j in range(idx + 1, len(lines)):
@@ -252,6 +259,36 @@ def _append_to_section(target: Path, section_heading: str, body: str) -> None:
         # section 不存在，追加到文件末尾
         suffix = "" if content.endswith("\n") else "\n"
         target.write_text(content + suffix + f"\n{section_heading}\n{block}", encoding="utf-8")
+
+
+def append_image_ref(
+    target_path: Path,
+    rel_path: str,
+    *,
+    section_template: str = "## {date}",
+) -> None:
+    """v0.4.15「图片即附件归档」：把 `![](rel_path)` 追加到 KB 文件。
+
+    设计取舍：
+      - 复用 _append_to_section（保持和文本归档同款 section 渲染：当天 H2 已存在就续写，
+        没有就新建），文件不存在就先建一个空骨架
+      - section_template 默认按当天 `## YYYY-MM-DD` 走，跟 polish 模式一致；调用方可覆盖
+      - 图片行格式：`> 📷 **图片** · HH:MM` + 空行 + `![](attachments/xxx.png)` —— 下一行加文件名
+        是因为某些 markdown 阅读器（如 Obsidian / VS Code）渲染 bare 图片块时不带时间戳上下文，
+        加一行引用让"什么时候归档的"人眼可读
+    """
+    if not rel_path:
+        raise ValueError("rel_path 不能为空")
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if not target_path.exists():
+        target_path.write_text(f"# {target_path.stem}\n\n", encoding="utf-8")
+    section_heading = section_template.format(**_now_vars())
+    stamp = _dt.datetime.now().strftime("%H:%M")
+    body = (
+        f"\n> 📷 **图片** · {stamp}\n\n"
+        f"![]({rel_path})\n"
+    )
+    _append_to_section(target_path, section_heading, body)
 
 
 def _write_archive_log(kb_root: Path, action: str, summary: str, target_rel: str) -> None:
@@ -445,7 +482,7 @@ def list_actions() -> None:
         print(f"  {key:14s}  {a['label']:20s}  → {a['target']}")
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Skillless")
     p.add_argument("action", nargs="?", help="操作名，例如 daily / shunshoumai / todo")
     p.add_argument("--text", help="直接传入原始文本")
@@ -463,11 +500,11 @@ def main() -> None:
     p.add_argument("--prompt", help="覆盖 prompt 文件路径（自定义 Prompt）")
     p.add_argument("--target", help="覆盖写入的目标 .md 文件名（相对知识库根）")
     p.add_argument("--list", action="store_true", help="列出所有操作")
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
     if args.list or (not args.action and not args.commit_json):
         list_actions()
-        return
+        return 0
 
     notify = not args.no_notify
 
@@ -477,7 +514,7 @@ def main() -> None:
             sys.exit("[archiver] commit-json 需要 stdin JSON")
         payload = json.loads(raw_json)
         commit_prepared(payload, notify=notify)
-        return
+        return 0
 
     raw_text = _read_text(args)
     if not raw_text.strip():
@@ -492,7 +529,7 @@ def main() -> None:
             target_override=args.target,
         )
         print(json.dumps(payload, ensure_ascii=False))
-        return
+        return 0
 
     run(
         args.action, raw_text,
@@ -503,7 +540,8 @@ def main() -> None:
         target_override=args.target,
         notify=notify,
     )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

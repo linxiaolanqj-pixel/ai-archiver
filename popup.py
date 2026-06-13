@@ -51,6 +51,8 @@ def _escape(s: str) -> str:
 
 
 def _read_clip() -> str:
+    # popup.py 走「Shortcuts → 用户主动按快捷键」入口（菜单栏不在也能用），
+    # 不在自动轮询热路径上，pbpaste 这里 OK；保留独立性，避免给单文件脚本加 AppKit 依赖。
     try:
         r = subprocess.run(["pbpaste"], capture_output=True, text=True, timeout=5)
         return r.stdout
