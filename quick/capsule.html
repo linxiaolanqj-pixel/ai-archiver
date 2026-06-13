@@ -632,6 +632,31 @@
       background: #eff8ff;
       border-color: #cfe5fb;
     }
+    /* v0.4.16：切换「📚 笔记」后浮出的「↻ 重算」chip。
+       插在 result 卡下方，醒目但不抢眼；hover 时浅蓝高亮提示可点 */
+    .btn.recompute-chip {
+      display: block;
+      margin: 8px 16px 4px;
+      padding: 7px 12px;
+      font-size: 12px;
+      color: #7dd3fc;
+      background: rgba(56,189,248,0.06);
+      border-color: rgba(56,189,248,0.28);
+      border-style: dashed;
+      cursor: pointer;
+      text-align: center;
+      width: calc(100% - 32px);
+    }
+    .btn.recompute-chip:hover {
+      background: rgba(56,189,248,0.14);
+      border-style: solid;
+    }
+    body.theme-white .btn.recompute-chip {
+      color: #0369a1;
+      background: #f5fbff;
+      border-color: #b6dcf5;
+    }
+    body.theme-white .btn.recompute-chip:hover { background: #e6f4fd; }
     .spacer { flex: 1; }
 
     /* ===== 状态 3: Feedback ===== */
@@ -1501,6 +1526,8 @@
 
       async function runRefine(mode) {
         stopPolling();
+        // v0.4.16：开新一轮就把 toggle 后浮出的「↻ 重算」chip 隐掉，避免和 thinking/result 重叠
+        hideRecomputeChip();
         const m = mode || state.mode;
         show("thinking");
         $("thinking-text").textContent = formatThinkingRemain(
@@ -1605,13 +1632,42 @@
         else await runRefine();
       }
 
-      // 「📚 笔记参考」开关：渲染当前状态，并在点击时切换 + 自动重新精简（让用户立刻看到差异）
+      // v0.4.16：「📚 笔记参考」开关切换后**不再自动重精简**（避免每次切换都烧 token）。
+      // 切完只更新状态条 + 浮出一个「↻ 用新模式重算」chip，用户主动点才真的重跑
       function renderKbBtn() {
         const btn = $("btn-kb");
         if (!btn) return;
         const on = !!state.kb_enabled;
         btn.classList.toggle("on", on);
         btn.textContent = on ? "📚 笔记 ON" : "📚 笔记 OFF";
+      }
+      function showRecomputeChip(newKbOn) {
+        // 把 chip 渲到 result 区底部（如果已存在就只更新文案）
+        let chip = $("recompute-chip");
+        if (!chip) {
+          chip = document.createElement("button");
+          chip.id = "recompute-chip";
+          chip.className = "btn btn-toggle recompute-chip";
+          chip.onclick = onRecomputeClick;
+          const result = $("result");
+          if (result && result.parentNode) {
+            result.parentNode.insertBefore(chip, result.nextSibling);
+          } else {
+            document.body.appendChild(chip);
+          }
+        }
+        chip.textContent = newKbOn
+          ? "↻ 用「笔记 ON」重算（会更慢，含视角补充）"
+          : "↻ 用「笔记 OFF」重算（更快，仅精简）";
+        chip.style.display = "";
+      }
+      function hideRecomputeChip() {
+        const chip = $("recompute-chip");
+        if (chip) chip.style.display = "none";
+      }
+      async function onRecomputeClick() {
+        hideRecomputeChip();
+        if (!state.apiKeyMode && !state.demo) await runRefine();
       }
       async function onKbToggle() {
         const btn = $("btn-kb");
@@ -1621,9 +1677,9 @@
           if (r && r.ok) {
             state.kb_enabled = !!r.kb_enabled;
             renderKbBtn();
-            // 切换后立刻重精简一次，让用户看到差异（极速 ↔ 完整）
-            if (!state.apiKeyMode && !state.demo) {
-              await runRefine();
+            // v0.4.16：不立即 runRefine。浮出 chip 让用户主动决定要不要重算
+            if (!state.apiKeyMode && !state.demo && state.mode !== "image") {
+              showRecomputeChip(state.kb_enabled);
             }
           }
         } finally {

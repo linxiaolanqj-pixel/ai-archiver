@@ -97,24 +97,24 @@ from kb_index import chunks_by_h2, bm25_search, render_top_chunks  # noqa: E402
 
 
 def _capsule_size_tier(input_len: int) -> tuple[int, int, int]:
-    """v0.4.12：根据(压缩后)原文长度，决定主精简的「条数上限 / 每条字数上限 / 总字数软上限」。
+    """v0.4.16：放开主精简字数上限（用户实测原档位过紧丢信息）。
 
-    设计取舍（产品原则「不让你多读一个字」）：
-      - 极短（≤ 100 字）：2 条 × 20 字，总 ≤ 40 字
-      - 短文（≤ 300 字）：3 条 × 25 字，总 ≤ 80 字
-      - 中等（≤ 1500 字）：5 条 × 30 字，总 ≤ 150 字
-      - 长文（> 1500 字）：7 条 × 35 字，总 ≤ 200 字
+    设计取舍（产品原则「不让你多读一个字」依然成立，只是松一档）：
+      - 极短（≤ 100 字）：3 条 × 30 字，总 ≤ 80 字
+      - 短文（≤ 300 字）：4 条 × 40 字，总 ≤ 150 字
+      - 中等（≤ 1500 字）：6 条 × 50 字，总 ≤ 280 字
+      - 长文（> 1500 字）：8 条 × 55 字，总 ≤ 400 字
     总字数是「软上限」：prompt 里允许超出至多 20%，但严禁展开成步骤列表/小作文。
 
-    视角补充段不动：仍是 ≤ 150 字 / ≤ 2 条，"克制工具"原则不变。
+    视角补充段同步放开（见 CAPSULE_ASIDE_MAX = 250、≤ 3 条）。
     """
     if input_len <= 100:
-        return (2, 20, 40)
+        return (3, 30, 80)
     if input_len <= 300:
-        return (3, 25, 80)
+        return (4, 40, 150)
     if input_len <= 1500:
-        return (5, 30, 150)
-    return (7, 35, 200)
+        return (6, 50, 280)
+    return (8, 55, 400)
 
 
 CAPSULE_INITIAL = (248, 60)
@@ -122,7 +122,7 @@ CAPSULE_INITIAL = (248, 60)
 # 1600 太短：会议转录 + 长文章经常被腰斩；4000 字 ≈ 1.5 千 tokens（中文），DeepSeek 仍能秒回
 CAPSULE_INPUT_MAX = 4000
 # v0.4.3：精简正文不再做字数硬限（用户实测 350 字太严丢信息），
-# 视角补充仍守 150 字。max_tokens 回到 800 给正文更多空间。
+# 视角补充 v0.4.16 放到 250 字。max_tokens 回到 800 给正文更多空间。
 CAPSULE_MAX_TOKENS = 800
 CAPSULE_STREAM_TIMEOUT = 60
 
@@ -135,12 +135,12 @@ FAST_MAX_TOKENS = 200
 # ==== 字数纪律 ====
 # 产品原则：
 # - 精简正文：尺寸跟随原文 + AI 自判断，不做硬上限（防御性最大 1500 字，纯防 AI 失控）
-# - 视角补充：硬上限 150 字 / 最多 2 条（批注必须克制）
+# - 视角补充：硬上限 250 字 / 最多 3 条（v0.4.16 从 150/2 放开）
 # 超过 → 后端 _enforce_length_limit 兜底截断 + 标题角标提示「已收短」（仅当视角补充被截）
 CAPSULE_BODY_MAX = 1500   # 防御性上限，正常输出远低于此
-CAPSULE_ASIDE_MAX = 150
+CAPSULE_ASIDE_MAX = 250
 CAPSULE_BODY_HARD = 1800
-CAPSULE_ASIDE_HARD = 180
+CAPSULE_ASIDE_HARD = 290
 def _build_prompt_suffix(input_len: int = 500, *, aside: bool = True) -> str:
     """v0.4.12：动态生成胶囊精简 prompt 后缀。
 
@@ -693,13 +693,13 @@ def _build_kb_system_prompt(
         "  ✗ 「建议关注产品独立性」← AI 助手腔，没事实没因果\n"
         "  ✗ 「这次方案和上次有关联」← 只说有关联，没说怎么关联\n"
         "\n硬要求：\n"
-        "  1. 【字数·死命令】整段 ≤ 150 汉字，最多 2 条；超就砍最弱那条，宁缺毋滥。\n"
+        "  1. 【字数·死命令】整段 ≤ 250 汉字，最多 3 条；超就砍最弱那条，宁缺毋滥。\n"
         "  2. 每条结尾必须有「依据：「...」」。\n"
         "  3. 找不到 KB 事实 / 拼不出因果链 → 那条不写；整段都拼不出 → `---` 段一字不写。\n"
         "  4. 第二人称「你」直接对话；不要总结口吻。\n"
         "  5. 禁词：建议关注 / 值得思考 / 或许可以 / 经过分析 / 综上 / 仅供参考 / 有一定。\n"
         "\n输出格式：正文 Markdown → 有批注就加 `---` → 下面：\n"
-        "```\n---\n### 📚 你的视角补充\n<≤ 150 字、≤ 2 条拼好的因果链>\n```\n"
+        "```\n---\n### 📚 你的视角补充\n<≤ 250 字、≤ 3 条拼好的因果链>\n```\n"
         "\n【疑似拼写 · 可选】KB 里反复出现的人名/产品/缩写视为权威拼写；"
         "本次输入若有近似不同的写法（同音/形近/错别字），写独立一行：\n"
         "  💡 疑似拼写：<本次写法> → <KB 写法>\n"
@@ -741,7 +741,7 @@ def _enforce_length_limit(text: str) -> tuple[str, dict]:
 
     - **精简正文**不做硬限（让 AI 按信息密度自由发挥）。仅当超出 CAPSULE_BODY_HARD
       这个防御性上限（1800 字，正常远不会触达）才截断，防止 AI 失控写小作文。
-    - **视角补充**保持硬限 ≤ CAPSULE_ASIDE_MAX（150 字）。
+    - **视角补充**保持硬限 ≤ CAPSULE_ASIDE_MAX（250 字，v0.4.16 从 150 放开）。
 
     返回 (新文本, info)；info["any"] 决定标题是否显示「已收短」角标。
     """
@@ -761,7 +761,7 @@ def _enforce_length_limit(text: str) -> tuple[str, dict]:
 
     if aside:
         info["aside_was"] = len(aside)
-        # 视角补充：守住 150 字硬限
+        # 视角补充：守住 250 字硬限（v0.4.16）
         if len(aside) > CAPSULE_ASIDE_HARD:
             aside = _smart_truncate(aside, CAPSULE_ASIDE_MAX)
             info["aside_cut"] = True
