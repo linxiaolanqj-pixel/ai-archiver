@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Skillless 后台管理 App。
 
-四个 Tab：首页 / 历史 / 黑名单 / 日志
+五个 Tab：首页 / 历史记录 / 黑名单 / 日志 / 反馈
 """
 
 from __future__ import annotations

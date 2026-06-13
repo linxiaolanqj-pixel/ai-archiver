@@ -489,7 +489,7 @@
           <label class="fb-setting-row">
             <span class="fb-label">反馈署名</span>
             <input type="text" id="fb-handle" class="fb-input" value="${escapeHtml(status.user_handle || "")}" placeholder="昵称（开发者看到这个名字回你）" />
-            <small class="hint">默认从「档案 → USER.md」读取，也可在这里覆写</small>
+            <small class="hint">默认从 profile 目录的 USER.md 读取，也可在这里覆写</small>
           </label>
           <label class="fb-setting-row">
             <span class="fb-label">自动错误上报</span>
