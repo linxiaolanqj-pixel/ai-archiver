@@ -123,7 +123,8 @@ CAPSULE_INITIAL = (248, 60)
 CAPSULE_INPUT_MAX = 4000
 # v0.4.3：精简正文不再做字数硬限（用户实测 350 字太严丢信息），
 # 视角补充 v0.4.16 放到 250 字。max_tokens 回到 800 给正文更多空间。
-CAPSULE_MAX_TOKENS = 800
+# v0.4.18：从 800 砍到 600，节省 ~2.5s 输出时间（80 tok/s 模型 × 200 tok = 2.5s）
+CAPSULE_MAX_TOKENS = 600
 CAPSULE_STREAM_TIMEOUT = 60
 
 # ==== v0.4.9 自适应延迟模式 ====
