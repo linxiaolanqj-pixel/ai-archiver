@@ -6,12 +6,27 @@ __pycache__/
 # 用户隐私 / 本地状态（绝对不能上 git）
 .env
 .state.json
+secrets/platform.env
+secrets/platform.key.enc
+secrets/feedback_webhook.txt
+platform.env
+platform.key.enc
+feedback_webhook.enc
 
 # 运行时
 .menubar.pid
 .menubar.log
 .history/
 .reset_backup/
+*.log
+last_launch.log
+startup.log
+
+# 用户隐私数据（运行时生成，含真实剪贴板内容 / 人格档案 / 反馈记录）
+clip_history.jsonl
+feedback.log
+.skillless_profile/
+kb_feedback.jsonl
 
 # PyInstaller 产物
 build/
