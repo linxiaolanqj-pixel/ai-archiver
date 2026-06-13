@@ -97,58 +97,78 @@
   /* ====== Panel 容器 ====== */
   root.innerHTML = `
     <section data-panel="home" class="panel"></section>
+    <section data-panel="profile" class="panel" hidden></section>
     <section data-panel="history" class="panel" hidden></section>
     <section data-panel="dict" class="panel" hidden></section>
-    <section data-panel="hotkey" class="panel" hidden></section>
+    <section data-panel="logs" class="panel" hidden></section>
+    <section data-panel="feedback" class="panel" hidden></section>
   `;
   const panels = {
     home: root.querySelector('[data-panel="home"]'),
+    profile: root.querySelector('[data-panel="profile"]'),
     history: root.querySelector('[data-panel="history"]'),
     dict: root.querySelector('[data-panel="dict"]'),
-    hotkey: root.querySelector('[data-panel="hotkey"]'),
+    logs: root.querySelector('[data-panel="logs"]'),
+    feedback: root.querySelector('[data-panel="feedback"]'),
   };
 
   // 每个 panel 是否已加载过（避免重复 RPC）
-  const loaded = { home: false, history: false, dict: false, hotkey: false };
+  const loaded = { home: false, profile: false, history: false, dict: false, logs: false, feedback: false };
 
   /* ====== 首页 ====== */
   async function renderHome(force = false) {
     if (!force && loaded.home) return;
     if (!loaded.home) panels.home.innerHTML = `<div class="loading">加载中…</div>`;
-    const data = await api().get_overview();
+    const [data, dictData] = await Promise.all([
+      api().get_overview(),
+      api().get_dictionary().catch(() => ({ entries: [] })),
+    ]);
     applyTheme(data.app_theme || "light");
     const s = data.stats;
     const last = data.last_record || {};
     const def = data.default_target;
     const defDisplay = data.default_target_display || def || "";
+    const dictEntries = (dictData && dictData.entries) || [];
     panels.home.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card"><div class="label">累计字数</div><div class="value">${s.chars.toLocaleString()}</div><div class="sub">字</div></div>
         <div class="stat-card"><div class="label">已归档</div><div class="value">${s.archived}</div><div class="sub">条</div></div>
-        <div class="stat-card"><div class="label">节省时间</div><div class="value">${s.saved_hhmm}</div><div class="sub">按 1 条/分钟</div></div>
-        <div class="stat-card"><div class="label">历史条目</div><div class="value">${s.count}</div><div class="sub">总复制</div></div>
+        <div class="stat-card"><div class="label">节省时间</div><div class="value">${s.saved_hhmm}</div><div class="sub">估算</div></div>
+        <div class="stat-card"><div class="label">复制次数</div><div class="value">${s.count}</div><div class="sub">累计</div></div>
       </div>
 
       <div class="card default-doc-card">
-        <h3>默认归档文档 <span class="hint">所有复制即归档 / 胶囊浮层 / 一键归档都写入这里</span></h3>
+        <h3>知识库 <span class="hint">胶囊归档写入这里 · AI 精简也会读它做术语对齐 / 关联补充</span></h3>
         ${
           def
             ? `<div class="default-doc-row">
                  <div class="default-doc-path" data-act="open-def" title="${escapeHtml(data.default_target_path || def)}（点击在 Finder 中打开）">${escapeHtml(defDisplay)}</div>
                  <button class="btn" data-act="change-def">更换…</button>
                  <button class="btn" data-act="new-def">新建…</button>
-               </div>`
+               </div>
+               <div class="kb-aware-tip">✓ 每次精简会自动参考此文档最近 ~2400 字</div>`
             : `<div class="default-doc-row">
-                 <div class="default-doc-empty">尚未设置默认归档文档</div>
+                 <div class="default-doc-empty">尚未设置 · 选一个 .md 让 AI 既能归档、又能参考你的笔记</div>
                  <button class="btn btn-primary" data-act="change-def">选择…</button>
                  <button class="btn" data-act="new-def">新建…</button>
                </div>`
         }
       </div>
 
+      <section class="card" id="dict-card">
+        <h3>纠错词典 <span class="hint">写错的写法 → 正确的写法。下次精简时会自动替换。</span></h3>
+        <div class="dict-tip">⚡ 自动条目是 AI 学的，建议偶尔扫一眼有没有学歪</div>
+        <div id="dict-card-body">${renderDictTable(dictEntries)}</div>
+        <div class="dict-add-row">
+          <input type="text" id="dict-wrong-input" placeholder="错的写法（如：陈列然）" autocomplete="off" spellcheck="false" />
+          <input type="text" id="dict-right-input" placeholder="正确的写法（如：陈睿然）" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-primary" id="dict-add-btn">+ 添加</button>
+        </div>
+      </section>
+
       <div class="card memory-card" id="memory-card">
         <h3>
-          <span>今日 memory</span>
+          <span>今日摘要</span>
           <button class="btn-mini" id="btn-memory-regen" hidden>重新生成</button>
         </h3>
         <div class="memory-body" id="memory-body">
@@ -172,18 +192,27 @@
         </div>
 
         <div class="card">
-          <h3>常用文档 <span class="hint">按归档次数排序</span></h3>
+          <h3>常用文档 <span class="hint">点一下，切换为默认归档目标</span></h3>
           ${
             data.favorites.length
               ? `<div class="fav-list">${data.favorites
-                  .map((f) => `<div title="${escapeHtml(f.raw || f.display || "")}">· ${escapeHtml(f.display || f.raw || "")}</div>`)
+                  .map((f) => {
+                    const raw = f.raw || "";
+                    const isCur = raw === def;
+                    return `<button type="button" class="fav-item ${isCur ? "current" : ""}"
+                      data-act="switch-def" data-target="${escapeHtml(raw)}"
+                      title="${escapeHtml(raw)}${isCur ? "（当前默认）" : "（点击设为默认）"}">
+                      <span class="fav-dot">${isCur ? "✓" : "○"}</span>
+                      <span class="fav-name">${escapeHtml(f.display || raw)}</span>
+                    </button>`;
+                  })
                   .join("")}</div>`
               : `<div class="empty">暂无常用，去归档几次就有了</div>`
           }
         </div>
 
         <div class="card">
-          <h3>主题 <span class="hint">同时作用于胶囊浮层与后台</span></h3>
+          <h3>外观 <span class="hint">浅色 / 深色</span></h3>
           <div class="segment" data-act="theme-seg">
             <button data-theme="light" class="${(data.app_theme || "light") === "light" ? "active" : ""}">浅色</button>
             <button data-theme="dark" class="${data.app_theme === "dark" ? "active" : ""}">深色</button>
@@ -192,8 +221,78 @@
       </div>
     `;
     loaded.home = true;
+    bindDictHomeHandlers();
     // 异步加载 memory（不阻塞首页其它内容）
     loadMemoryCard();
+  }
+
+  /* —— 首页内嵌：纠错词典（路线 A 编辑面板）—— */
+  function renderDictSourceChip(src) {
+    if (src === "auto") {
+      return `<span class="dict-src dict-src-auto" title="AI 检测到疑似拼写后自动学习">⚡ 自动</span>`;
+    }
+    return `<span class="dict-src dict-src-manual" title="你手动添加或确认过">👤 手动</span>`;
+  }
+
+  function renderDictTable(entries) {
+    if (!entries || !entries.length) {
+      return `<div class="dict-empty">还没有纠错条目。胶囊里检测到疑似拼写时会自动学习，也可以在下方手动添加。</div>`;
+    }
+    return `
+      <table class="dict-table">
+        <thead>
+          <tr>
+            <th>错</th>
+            <th>对</th>
+            <th class="src">来源</th>
+            <th class="num">命中</th>
+            <th class="act"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${entries.map((e) => `
+            <tr>
+              <td><code>${escapeHtml(e.wrong || "")}</code></td>
+              <td><code>${escapeHtml(e.right || "")}</code></td>
+              <td class="src">${renderDictSourceChip(e.source || "manual")}</td>
+              <td class="num">${Number(e.hits || 0)}</td>
+              <td class="act">
+                <button class="btn-mini" data-dict-rm="${escapeHtml(e.wrong || "")}">删除</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  async function refreshDictCard() {
+    const body = document.getElementById("dict-card-body");
+    if (!body) return;
+    const d = await api().get_dictionary().catch(() => ({ entries: [] }));
+    body.innerHTML = renderDictTable((d && d.entries) || []);
+  }
+
+  function bindDictHomeHandlers() {
+    const wIn = document.getElementById("dict-wrong-input");
+    const rIn = document.getElementById("dict-right-input");
+    if (wIn) {
+      wIn.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (rIn) rIn.focus();
+        }
+      };
+    }
+    if (rIn) {
+      rIn.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const btn = document.getElementById("dict-add-btn");
+          if (btn) btn.click();
+        }
+      };
+    }
   }
 
   async function loadMemoryCard(forceRegen = false) {
@@ -244,6 +343,39 @@
 
   // 事件委托：home 点击
   panels.home.addEventListener("click", async (e) => {
+    // 纠错词典：添加
+    if (e.target.closest("#dict-add-btn")) {
+      const wIn = document.getElementById("dict-wrong-input");
+      const rIn = document.getElementById("dict-right-input");
+      const w = (wIn && wIn.value || "").trim();
+      const r = (rIn && rIn.value || "").trim();
+      if (!w || !r) { showToast("错/对 都要填"); return; }
+      if (w === r) { showToast("错和对不能一样"); return; }
+      const res = await api().add_dictionary_entry(w, r);
+      if (res && res.ok) {
+        if (wIn) wIn.value = "";
+        if (rIn) rIn.value = "";
+        showToast("已添加：" + w + " → " + r);
+        await refreshDictCard();
+      } else {
+        showToast("添加失败：" + (res && res.error || ""));
+      }
+      return;
+    }
+    // 纠错词典：删除
+    const rmBtn = e.target.closest("[data-dict-rm]");
+    if (rmBtn) {
+      const w = rmBtn.dataset.dictRm;
+      if (!w) return;
+      const res = await api().delete_dictionary_entry(w);
+      if (res && res.ok) {
+        showToast("已删除：" + w);
+        await refreshDictCard();
+      } else {
+        showToast("删除失败：" + (res && res.error || ""));
+      }
+      return;
+    }
     // memory 生成 / 重新生成
     if (e.target.closest("#btn-memory-regen") || e.target.closest("[data-act=memory-gen]")) {
       loadMemoryCard(true);
@@ -285,6 +417,16 @@
       } else if (!r.cancelled) {
         showToast("创建失败");
       }
+    } else if (act === "switch-def") {
+      const target = t.dataset.target;
+      if (!target) return;
+      const r = await api().switch_default_target(target);
+      if (r.ok) {
+        showToast("已切换为：" + (r.default_target_display || r.default_target));
+        renderHome(true);
+      } else if (!r.cancelled) {
+        showToast("切换失败：" + (r.error || ""));
+      }
     }
   });
 
@@ -299,8 +441,8 @@
     if (!force && loaded.history) return;
     if (!historyDom) {
       panels.history.innerHTML = `
-        <h2 class="page-title">📜 历史记录</h2>
-        <p class="page-lead">最近的剪贴板（按时间倒序），文字和图片都在。</p>
+        <h2 class="page-title">历史</h2>
+        <p class="page-lead">你复制过的文字和图片，按时间排列。</p>
         <div class="filter-bar" id="hist-filter"></div>
         <div class="history-list" id="hist-list"><div class="loading">加载中…</div></div>
         <div class="load-more-wrap"><button class="btn" id="hist-more" hidden>加载更多</button></div>
@@ -437,20 +579,19 @@
   async function renderDict(force = false) {
     if (!force && loaded.dict) return;
     if (!loaded.dict) panels.dict.innerHTML = `<div class="loading">加载中…</div>`;
-    const d = await api().get_dictionary();
+    const d = await api().get_skip_dict();
     panels.dict.innerHTML = `
       <h2 class="page-title">黑名单</h2>
-      <p class="page-lead">命中黑名单的复制内容不会触发胶囊浮层（仍会进历史）。规则是<strong>正则表达式</strong>，按从上到下的顺序匹配，命中一条即跳过。常见用法：<code>^https?://</code> 跳过链接、<code>function|class\\s</code> 跳过代码片段、关键词如 <code>密码</code> / <code>token</code> 跳过敏感内容。</p>
+      <p class="page-lead">命中黑名单的内容不会弹胶囊，但仍会记在「历史」里。菜单栏「添加到黑名单」可快速添加。</p>
       <div class="card">
-        <h3>手动添加跳过规则</h3>
+        <h3>添加规则</h3>
         <div class="dict-add">
-          <input type="text" id="new-skip" placeholder="正则，如 ^https://  或  某关键词" />
+          <input type="text" id="new-skip" placeholder="关键词或链接，如 https:// 或 某公众号名" />
           <button class="btn btn-primary" id="add-skip">添加</button>
         </div>
-        ${renderDictGroup("✋ 手动添加", d.manual, "manual", "manual")}
-        ${renderDictGroup("🤖 自动加入（连续跳过时）", d.auto, "auto", "auto")}
-        ${renderDictGroup("⚙️ config.yaml 配置", d.config, "config", null)}
-        ${renderDictGroup("📦 内置（不可删）", d.builtin, "builtin", null)}
+        ${renderDictGroup("你添加的", d.manual, "manual", "manual")}
+        ${renderDictGroup("自动添加", d.auto, "auto", "auto")}
+        ${renderDictGroup("内置规则", d.builtin, "builtin", null)}
       </div>
     `;
     panels.dict.querySelector("#add-skip").onclick = async () => {
@@ -496,63 +637,276 @@
       </div>`;
   }
 
-  /* ====== 快捷键 ====== */
-  async function renderHotkey(force = false) {
-    if (!force && loaded.hotkey) return;
-    if (!loaded.hotkey) panels.hotkey.innerHTML = `<div class="loading">加载中…</div>`;
-    const hk = await api().get_hotkeys();
-    const row = (key, info) => `
-      <div class="hotkey-row">
-        <div class="hotkey-name">${escapeHtml(info.name)}<small>${escapeHtml(info.cmd)}</small></div>
-        <input type="text" data-key="${key}" value="${escapeHtml(info.shortcut)}" placeholder="点这里，然后按快捷键" readonly />
-        <button class="btn-mini" data-copy="${escapeHtml(info.cmd)}">复制命令</button>
-        <button class="btn-mini" data-open-shortcuts>打开 Shortcuts</button>
-      </div>`;
-    panels.hotkey.innerHTML = `
-      <h2 class="page-title">⌨️ 快捷键</h2>
-      <p class="page-lead">点击输入框后直接按组合键即可保存。菜单栏会全局监听这些快捷键，Shortcuts 仍保留为备用方案。</p>
-      <div class="card">
-        ${row("input", hk.input)}
-        ${row("translate", hk.translate)}
-        ${row("ask", hk.ask)}
-        <div class="hotkey-help">
-          <strong>怎么用：</strong><br/>
-          1. 点输入框，直接按你想要的组合键，例如 <code>⌃⌥⌘A</code><br/>
-          2. 保存后通常立即生效；若没反应，再点菜单「🔄 重新加载配置」或重启菜单栏<br/>
-          3. 若系统没响应，去「系统设置 → 隐私与安全性 → 辅助功能」允许相关进程
+  /* ====== 档案（SOUL / USER / TOOLS）====== */
+  const PROFILE_CARDS = [
+    {
+      kind: "soul",
+      title: "SOUL.md",
+      subtitle: "Skillless 是谁 · 视角补充段的人格 / 口吻 / 价值观",
+      hint: "只对「📚 你的视角补充」段生效；精简正文不受影响。",
+    },
+    {
+      kind: "user",
+      title: "USER.md",
+      subtitle: "关于你 · AI 在写视角补充时的人物画像",
+      hint: "AI 用这段决定该用什么角度看你的新输入；不会拿来模仿你的文风写精简正文。",
+    },
+    {
+      kind: "tools",
+      title: "TOOLS.md",
+      subtitle: "项目 / 术语 / 关键人物 · 视角补充段的私密备忘录",
+      hint: "让视角补充能直说「张三那个项目」；精简正文不解释术语。",
+    },
+  ];
+
+  async function renderProfile(force = false) {
+    if (!force && loaded.profile) return;
+    if (!loaded.profile) panels.profile.innerHTML = `<div class="loading">加载中…</div>`;
+    const data = await api().get_profile().catch(() => ({ soul: "", user: "", tools: "" }));
+    panels.profile.innerHTML = `
+      <h2 class="page-title">档案 <span class="hint" style="font-size: 12px; margin-left: 8px;">三层人格记忆 · 告别冷启动</span></h2>
+      <p class="page-lead">
+        Skillless 通过 <strong>SOUL / USER / TOOLS</strong> 三个 markdown 文件认识你。
+        <strong>每次精简时 AI 都会读它们做「视角补充」</strong>——改完点保存即生效，不需要重启。
+        <br/>这三份档案<strong>只服务于「📚 你的视角补充」段</strong>；精简正文还是按基础规则走，不会被影响。
+      </p>
+
+      <div class="card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="font-size: 13px; color: #475569; line-height: 1.6;">
+          想直接编辑文件、加图、做版本对比？打开 Finder。
         </div>
+        <button class="btn" data-act="open-profile-dir">📂 在 Finder 中打开</button>
+      </div>
+
+      <div class="profile-grid">
+        ${PROFILE_CARDS.map((c) => `
+          <section class="card profile-card" data-card="${c.kind}">
+            <h3>
+              <span>${escapeHtml(c.title)} <span class="hint" style="margin-left: 6px;">${escapeHtml(c.subtitle)}</span></span>
+              <button class="btn btn-primary profile-save-btn" data-kind="${c.kind}">保存</button>
+            </h3>
+            <div class="profile-hint">${escapeHtml(c.hint)}</div>
+            <textarea class="profile-textarea" data-kind="${c.kind}" spellcheck="false">${escapeHtml(data[c.kind] || "")}</textarea>
+          </section>
+        `).join("")}
       </div>
     `;
-    loaded.hotkey = true;
+
+    // 绑定保存按钮：每张卡独立保存
+    panels.profile.querySelectorAll(".profile-save-btn").forEach((btn) => {
+      btn.onclick = async () => {
+        const kind = btn.dataset.kind;
+        const ta = panels.profile.querySelector(`.profile-textarea[data-kind="${kind}"]`);
+        if (!ta) return;
+        const content = ta.value || "";
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = "保存中…";
+        try {
+          const r = await api().save_profile_part(kind, content);
+          if (r && r.ok) {
+            showToast(`已保存 ${kind.toUpperCase()}.md · ${content.length} 字符`);
+          } else {
+            showToast(`保存失败：${(r && r.error) || "未知错误"}`);
+          }
+        } catch (e) {
+          showToast("保存失败：" + (e && e.message || e));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = oldText;
+        }
+      };
+    });
+
+    // 绑定 Finder 入口
+    const openBtn = panels.profile.querySelector('[data-act="open-profile-dir"]');
+    if (openBtn) {
+      openBtn.onclick = async () => {
+        try {
+          const r = await api().open_profile_dir();
+          if (r && r.ok) showToast("已打开 profile 目录");
+          else showToast("打开失败：" + ((r && r.error) || ""));
+        } catch (e) {
+          showToast("打开失败：" + (e && e.message || e));
+        }
+      };
+    }
+
+    loaded.profile = true;
   }
 
-  // 事件委托：hotkey
-  panels.hotkey.addEventListener("keydown", async (e) => {
-    const inp = e.target.closest("input[data-key]");
-    if (!inp) return;
-    e.preventDefault();
-    const combo = comboFromEvent(e);
-    if (!combo) {
-      showToast("请按组合键，例如 ⌃⌥⌘A");
+  /* ====== 日志 ====== */
+  let activeLogName = "clip_watcher.log";
+
+  async function renderLogs(force = false) {
+    if (!force && loaded.logs) return;
+    const data = await api().list_logs();
+    const items = data.items || [];
+    panels.logs.innerHTML = `
+      <h2 class="page-title">日志</h2>
+      <p class="page-lead">排查「复制没弹胶囊」等问题时看这里。点文件名切换，下方显示最近内容。</p>
+      <div class="card">
+        <div class="log-tabs" id="log-tabs">
+          ${items.map((it) => `
+            <button type="button" class="log-tab ${it.name === activeLogName ? "active" : ""} ${it.exists ? "" : "empty"}"
+              data-log="${escapeHtml(it.name)}">
+              ${escapeHtml(it.label)}
+              <small>${it.exists ? Math.max(1, Math.round(it.size / 1024)) + " KB" : "空"}</small>
+            </button>`).join("")}
+        </div>
+        <div class="log-actions">
+          <button class="btn-mini" id="log-refresh">刷新</button>
+          <button class="btn-mini" id="log-open-folder">打开文件夹</button>
+        </div>
+        <pre class="log-view" id="log-view">加载中…</pre>
+      </div>
+    `;
+    panels.logs.querySelector("#log-tabs").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-log]");
+      if (!b) return;
+      activeLogName = b.dataset.log;
+      panels.logs.querySelectorAll(".log-tab").forEach((el) => {
+        el.classList.toggle("active", el.dataset.log === activeLogName);
+      });
+      await loadLogBody();
+    });
+    panels.logs.querySelector("#log-refresh").onclick = () => renderLogs(true);
+    panels.logs.querySelector("#log-open-folder").onclick = () => api().open_logs_folder();
+    loaded.logs = true;
+    await loadLogBody();
+  }
+
+  async function loadLogBody() {
+    const view = panels.logs.querySelector("#log-view");
+    if (!view) return;
+    const r = await api().read_log(activeLogName, 300);
+    if (!r.ok) {
+      view.textContent = r.error || "读取失败";
       return;
     }
-    inp.value = combo;
-    const r = await api().update_hotkey(inp.dataset.key, combo);
-    showToast(r.ok ? "已保存，通常立即生效" : (r.error || "保存失败"));
-  });
-  panels.hotkey.addEventListener("click", async (e) => {
-    const c = e.target.closest("[data-copy]");
-    if (c) {
-      const r = await api().copy_command(c.dataset.copy);
-      showToast(r.ok ? "命令已复制" : "复制失败");
+    if (r.empty) {
+      view.textContent = "（暂无内容）";
       return;
     }
-    const s = e.target.closest("[data-open-shortcuts]");
-    if (s) api().open_shortcuts_app();
-  });
+    view.textContent = r.content || "";
+  }
+
+  /* ====== 反馈 / 问题报告 ====== */
+  async function renderFeedback(force = false) {
+    if (!force && loaded.feedback) return;
+    if (!loaded.feedback) panels.feedback.innerHTML = `<div class="loading">加载中…</div>`;
+    const status = await api().feedback_status().catch(() => ({}));
+    const channel = status.webhook_configured
+      ? (status.channel === "feishu" ? "飞书机器人" : status.channel)
+      : "未配置（提交后将复制到剪贴板，请粘贴给开发者）";
+    panels.feedback.innerHTML = `
+      <h2 class="page-title">反馈 / 问题报告</h2>
+      <p class="page-lead">写一句话告诉开发者你遇到的问题、想要的功能。提交时会随附最近日志、版本、系统信息。
+        <strong>不会发送你的笔记原文、剪贴板内容、API Key 或词典条目。</strong></p>
+
+      <div class="card fb-card">
+        <h3>说点什么 <span class="hint">越具体越容易修</span></h3>
+        <textarea id="fb-desc" class="fb-textarea" placeholder="例：会议记录粘进来胶囊不出现 / 视角补充能不能再短一点 / 在 macOS 26 上启动崩溃……" maxlength="600"></textarea>
+        <div class="fb-row">
+          <span class="fb-meter"><span id="fb-count">0</span> / 600 字</span>
+          <span class="fb-channel">通道：${escapeHtml(channel)}</span>
+        </div>
+        <div class="fb-actions">
+          <button class="btn" id="fb-preview-btn">预览要发的内容</button>
+          <button class="btn btn-primary" id="fb-send-btn">提交反馈</button>
+        </div>
+        <div id="fb-result" class="fb-result"></div>
+      </div>
+
+      <div class="card fb-card">
+        <h3>设置</h3>
+        <div class="fb-settings">
+          <label class="fb-setting-row">
+            <span class="fb-label">反馈署名</span>
+            <input type="text" id="fb-handle" class="fb-input" value="${escapeHtml(status.user_handle || "")}" placeholder="昵称（开发者看到这个名字回你）" />
+            <small class="hint">默认从「档案 → USER.md」读取，也可在这里覆写</small>
+          </label>
+          <label class="fb-setting-row">
+            <span class="fb-label">自动错误上报</span>
+            <span>
+              <input type="checkbox" id="fb-auto" ${status.auto_error_enabled ? "checked" : ""} />
+              <small class="hint">遇到崩溃 / 网络挂了，自动发一条精简事件给开发者（30s 限流，避免刷屏）</small>
+            </span>
+          </label>
+          <label class="fb-setting-row fb-advanced">
+            <span class="fb-label">自定义 webhook</span>
+            <input type="text" id="fb-webhook" class="fb-input" value="${escapeHtml(status.custom_webhook || "")}" placeholder="（仅自架收件时填，留空走打包默认）" autocomplete="off" />
+            <small class="hint">填入后将覆盖默认通道。常用于内测时把反馈发到自己群</small>
+          </label>
+          <div class="fb-actions">
+            <button class="btn" id="fb-save-settings">保存设置</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card fb-card fb-preview-wrap" id="fb-preview-wrap" hidden>
+        <h3>预览（这就是开发者会看到的内容）</h3>
+        <pre id="fb-preview-pre" class="fb-preview"></pre>
+      </div>
+    `;
+
+    const desc = panels.feedback.querySelector("#fb-desc");
+    const count = panels.feedback.querySelector("#fb-count");
+    desc.addEventListener("input", () => { count.textContent = String(desc.value.length); });
+
+    panels.feedback.querySelector("#fb-preview-btn").onclick = async () => {
+      const r = await api().feedback_preview(desc.value || "");
+      const wrap = panels.feedback.querySelector("#fb-preview-wrap");
+      const pre = panels.feedback.querySelector("#fb-preview-pre");
+      if (r.ok) {
+        wrap.hidden = false;
+        pre.textContent = JSON.stringify(r.payload, null, 2);
+      } else {
+        toast("预览失败：" + (r.error || ""));
+      }
+    };
+
+    panels.feedback.querySelector("#fb-send-btn").onclick = async () => {
+      const text = (desc.value || "").trim();
+      const result = panels.feedback.querySelector("#fb-result");
+      if (!text) {
+        result.innerHTML = `<div class="fb-warn">请先写点什么</div>`;
+        return;
+      }
+      result.innerHTML = `<div class="fb-info">发送中…</div>`;
+      const r = await api().feedback_send(text);
+      if (r.ok) {
+        result.innerHTML = `<div class="fb-ok">✓ 已发送给开发者（通道：${escapeHtml(r.channel || "")}）</div>`;
+        desc.value = ""; count.textContent = "0";
+      } else if (r.fallback === "clipboard") {
+        result.innerHTML = `<div class="fb-warn">网络发送失败（${escapeHtml(r.reason || "")}），反馈包已复制到剪贴板，请粘给开发者</div>`;
+      } else {
+        result.innerHTML = `<div class="fb-warn">发送失败：${escapeHtml(r.reason || r.error || "")}</div>`;
+      }
+    };
+
+    panels.feedback.querySelector("#fb-save-settings").onclick = async () => {
+      const handle = panels.feedback.querySelector("#fb-handle").value.trim();
+      const webhook = panels.feedback.querySelector("#fb-webhook").value.trim();
+      const auto = panels.feedback.querySelector("#fb-auto").checked;
+      const r = await api().feedback_save_settings({
+        user_handle: handle,
+        custom_webhook: webhook,
+        auto_error_enabled: auto,
+      });
+      if (r.ok) {
+        toast("设置已保存");
+        renderFeedback(true);
+      } else {
+        toast("保存失败：" + (r.error || ""));
+      }
+    };
+
+    loaded.feedback = true;
+  }
 
   /* ====== Tab 切换：display 切换，不重建 DOM ====== */
-  const renderers = { home: renderHome, history: renderHistory, dict: renderDict, hotkey: renderHotkey };
+  const renderers = { home: renderHome, profile: renderProfile, history: renderHistory, dict: renderDict, logs: renderLogs, feedback: renderFeedback };
   let currentTab = "home";
 
   function switchTab(tab) {

@@ -28,9 +28,11 @@ from ui_util import (
     truncate_for_dialog,
 )
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+from app_paths import data_dir as DATA_DIR, resource_dir
+
+SCRIPT_DIR = resource_dir()
 ARCHIVER_PY = SCRIPT_DIR / "archiver.py"
-ENV_PATH = SCRIPT_DIR / ".env"
+ENV_PATH = DATA_DIR() / ".env"
 PY = str(SCRIPT_DIR / ".venv/bin/python") if (SCRIPT_DIR / ".venv/bin/python").exists() else sys.executable
 
 DEMO_SAMPLE_TEXT = (
@@ -66,12 +68,12 @@ def _display_dialog(
     title: str,
     buttons: tuple[str, ...] = ("取消", "确定"),
     default_button: str | None = None,
-    default_answer: str = "",
+    default_answer: str | None = None,
 ) -> str | None:
     btn_apple = ", ".join(f'"{_escape_dialog(b)}"' for b in buttons)
     default_btn = default_button or buttons[-1]
     body = f'display dialog "{_escape_dialog(message)}" with title "{_escape_dialog(title)}"'
-    if default_answer:
+    if default_answer is not None:
         body += f' default answer "{_escape_dialog(default_answer)}"'
     body += f' buttons {{{btn_apple}}} default button "{_escape_dialog(default_btn)}"'
     try:
@@ -170,7 +172,13 @@ def api_key_dialog() -> str | None:
 {DEEPSEEK_API_KEYS_URL}
 
 可先跳过（跳过则演示用原文模式）"""
-    out = _display_dialog(msg, title="🔑 API Key", buttons=("跳过", "保存"), default_button="保存")
+    out = _display_dialog(
+        msg,
+        title="🔑 API Key",
+        buttons=("跳过", "保存"),
+        default_button="保存",
+        default_answer=get_api_key() or "",
+    )
     if not out:
         return None
     key = out
@@ -221,7 +229,7 @@ def run_live_demo_archive(root: Path, default_md: str) -> tuple[bool, str, bool]
 
     try:
         r = subprocess.run(
-            cmd, input=DEMO_SAMPLE_TEXT, capture_output=True, text=True, timeout=120, cwd=str(SCRIPT_DIR),
+            cmd, input=DEMO_SAMPLE_TEXT, capture_output=True, text=True, timeout=120, cwd=str(DATA_DIR()),
         )
     except subprocess.TimeoutExpired:
         return False, "演示超时", use_ai
@@ -279,30 +287,32 @@ def run_onboarding(force: bool = False) -> bool:
     if onboarding_done() and not force:
         return False
 
-    win_script = SCRIPT_DIR / "onboarding_window.py"
-    if not win_script.exists():
-        _display_dialog(
-            f"缺少 {win_script}\n\n请确认 onboarding_window.py 存在。",
-            title="新客引导",
-            buttons=("好",),
-            default_button="好",
-        )
-        return False
-
+    from app_paths import is_frozen, resource_dir, data_dir
     from bootkit import child_cmd
+
+    if not is_frozen():
+        win_script = SCRIPT_DIR / "onboarding_window.py"
+        if not win_script.exists():
+            _display_dialog(
+                f"缺少 {win_script}\n\n请确认 onboarding_window.py 存在。",
+                title="新客引导",
+                buttons=("好",),
+                default_button="好",
+            )
+            return False
 
     extra = ["--force"] if force else []
     cmd = child_cmd("onboarding", *extra)
     print("[onboarding] 正在打开引导窗口…", flush=True)
     try:
-        r = subprocess.run(cmd, cwd=str(SCRIPT_DIR), timeout=7200)
+        r = subprocess.run(cmd, cwd=str(data_dir()), timeout=7200)
     except FileNotFoundError:
         return _run_onboarding_legacy()
     except subprocess.TimeoutExpired:
         return False
     if r.returncode == 2 and not force:
         return False
-    if r.returncode != 0 and not (SCRIPT_DIR / "onboarding" / "index.html").exists():
+    if r.returncode != 0 and not (resource_dir() / "onboarding" / "index.html").exists():
         _display_dialog(
             "引导界面文件缺失，请确认 onboarding/ 目录完整。",
             title="新客引导",

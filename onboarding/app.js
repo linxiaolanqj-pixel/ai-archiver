@@ -3,18 +3,21 @@
  *   1. Welcome —— 三大核心能力总览
  *   2. Refine  —— ① 选中就精简：动画演示
  *   3. How     —— ② 精简后归档：动画演示
- *   4. Ask     —— ③ 复制文字一键提问：动画演示
- *   5. Hotkey  —— 设快捷键 + 亲自试一次
- *   6. API     —— 配 Key
- *   7. Pick    —— 选默认 .md
+ *   4. Hotkey  —— ⌘C 触发 + 亲自试一次
+ *   5. API     —— AI 已内置（或可选自备 Key）
+ *   6. Pick    —— 选默认 .md = 知识库
+ *   7. KB      —— 知识库越用越懂：三列对比演示
  */
 (function () {
-  const STEPS = ["welcome", "refine", "how", "ask", "hotkey", "api", "pick"];
+  const STEPS = ["welcome", "refine", "how", "hotkey", "api", "pick", "kb"];
 
   let stepIndex = 0;
   let picked = null;
   let hotkey = "";
   let hasKey = false;
+  const EASY_HOTKEY = "⌘C";
+  const ALT_HOTKEY = "⌥⌘R";
+  let permPollTimer = null;
 
   const stage = document.getElementById("stage");
   const dotsEl = document.getElementById("dots");
@@ -78,8 +81,8 @@
         <h2 class="title">选中文字，立刻变清晰</h2>
         <p class="lead">
           Skillless 做三件事：<strong>① 选中就精简</strong> · 去口水、结构化；<br />
-          <strong>② 精简后归档</strong> · 一键写进你的 .md；<br />
-          <strong>③ 基于 .md 提问</strong> · Agent 读过你的笔记再回答。
+          <strong>② 一键归档</strong> · 追加到你指定的 .md；<br />
+          <strong>③ 越用越懂你</strong> · AI 读你的笔记，下次精简会顺手补遗漏、提示重复。
         </p>
       </div>`;
     clearActions();
@@ -92,7 +95,7 @@
   function renderRefine() {
     stage.innerHTML = `
       <h2 class="title">① 选中就精简</h2>
-      <p class="lead">复制或选中一段口语化文字 → 胶囊弹出 → AI 去口水化 + 结构化。先看一遍真实效果。</p>
+      <p class="lead">选中一段口语化文字 → 按 <kbd>⌘</kbd><kbd>C</kbd> 复制 → 胶囊弹出 → AI 去口水化 + 结构化。先看一遍真实效果。</p>
 
       <div class="demo-stage refine-stage run" id="refine-stage">
         <div class="demo-phase">
@@ -144,77 +147,6 @@
     clearActions();
     actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
     actionsEl.appendChild(btn("继续 → 看看归档", "primary", goNext));
-  }
-
-  /* ============================================================
-   * Step 4 · ③ 复制文字，一键提问（动画演示）
-   * ============================================================ */
-  function renderAsk() {
-    stage.innerHTML = `
-      <h2 class="title">③ 复制文字，一键提问</h2>
-      <p class="lead">复制一段问题 → 点「提问」→ Skillless 读过你的 .md，按项目上下文回答。</p>
-
-      <div class="ask-stage run" id="ask-stage">
-        <div class="ask-phase">
-          <span class="aph aph-1">① 复制</span>
-          <span class="aph aph-2">② 提问</span>
-          <span class="aph aph-3">③ 回答</span>
-        </div>
-
-        <div class="ask-source">
-          <div class="ask-chat-label">你复制的问题</div>
-          <div class="ask-q-bubble">
-            <span class="ask-q-text">老板上次说我们 Q3 重点是什么？</span>
-          </div>
-          <div class="ask-copy-badge">📋 已复制</div>
-        </div>
-
-        <div class="ask-md-chip">
-          <span class="ask-md-ico">📄</span>
-          <span>7-12 与老板 1-1.md</span>
-        </div>
-
-        <div class="ask-capsule">
-          <div class="ask-idle">
-            <span class="ask-cap-title">💬 基于 .md 提问</span>
-            <span class="ask-btn primary">一键提问</span>
-          </div>
-          <div class="ask-thinking">
-            <span class="cap-spin"></span>
-            <span>正在读取 .md 并思考…</span>
-          </div>
-          <div class="ask-answer">
-            <div class="ask-ans-head">
-              <span class="ask-ans-tag">引用你的笔记</span>
-            </div>
-            <div class="ask-ans-body">
-              <div class="ask-ans-row ask-ar1"><strong>当前策略</strong>：用户增长优先（已暂停追 GMV）</div>
-              <div class="ask-ans-row ask-ar2"><strong>7/12 1:1</strong>：沿方向 A（拉新提速）& 方向 B（留存深挖）双线推进</div>
-              <div class="ask-ans-row ask-ar3"><strong>8/30</strong> 董事会汇报重点放这两条线</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="demo-replay-wrap">
-        <button type="button" class="demo-replay" id="ask-replay">↻ 重播动画</button>
-      </div>
-
-      <div class="why-tail">
-        普通 Agent 只会说「建议查会议纪要」—— Skillless 读过你归档的 .md，
-        能直接引用<strong>日期、方向、数字</strong>来答。
-      </div>`;
-
-    document.getElementById("ask-replay").onclick = () => {
-      const s = document.getElementById("ask-stage");
-      s.classList.remove("run");
-      void s.offsetWidth;
-      s.classList.add("run");
-    };
-
-    clearActions();
-    actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
-    actionsEl.appendChild(btn("继续 → 设快捷键", "primary", goNext));
   }
 
   /* ============================================================
@@ -292,17 +224,17 @@
         <div class="capa-card capa-card-primary">
           <span class="capa-ico">✨</span>
           <div class="capa-title">① 选中就精简</div>
-          <div class="capa-desc">复制或选中文字，胶囊立刻去口水、结构化 —— 这是第一步</div>
+          <div class="capa-desc">选中文字按 ⌘C 复制，胶囊立刻去口水、结构化</div>
         </div>
         <div class="capa-card">
           <span class="capa-ico">📥</span>
-          <div class="capa-title">② 精简后归档</div>
+          <div class="capa-title">② 一键归档</div>
           <div class="capa-desc">满意就点归档，追加到你指定的 .md</div>
         </div>
         <div class="capa-card">
-          <span class="capa-ico">💬</span>
-          <div class="capa-title">③ 基于 .md 提问</div>
-          <div class="capa-desc">选中文字 + 你的笔记，Agent 按项目上下文回答</div>
+          <span class="capa-ico">📚</span>
+          <div class="capa-title">③ 越用越懂你</div>
+          <div class="capa-desc">AI 读过你的笔记，下次会顺手提示重复、补遗漏</div>
         </div>
       </div>`;
 
@@ -315,64 +247,201 @@
 
     clearActions();
     actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
-    actionsEl.appendChild(btn("继续 → 看看提问", "primary", goNext));
+    actionsEl.appendChild(btn("继续 → 设置快捷键", "primary", goNext));
   }
 
   /* ============================================================
-   * Step 5 · 设快捷键 + 亲自试一次
+   * Step 5 · ⌘C 快捷键 + 亲自试一次
    * ============================================================ */
+  function markDemoSuccess() {
+    window._onboardingDemoOk = true;
+    const rowLocal = document.getElementById("hk-diag-local");
+    const rowGlobal = document.getElementById("hk-diag-global");
+    const rowMatch = document.getElementById("hk-diag-match");
+    const hint = document.getElementById("hk-diag-hint");
+    const setRow = (row, state, text) => {
+      if (!row) return;
+      row.dataset.state = state;
+      row.querySelector(".hk-diag-text").textContent = text;
+    };
+    setRow(rowLocal, "ok", "① 本窗口内监听：演示通过 ✓");
+    setRow(rowGlobal, "ok", "② 全局监听：演示模式跳过 ✓（正式用时再开权限）");
+    setRow(rowMatch, "ok", "③ 命中你的组合：演示胶囊已弹起 ✓");
+    if (hint) {
+      hint.innerHTML =
+        `演示通过 ✓ 已用<strong>预制精简结果</strong>弹胶囊（无需 API Key）。` +
+        `点「继续」去配 Key，或先跳过也行。`;
+      hint.className = "hk-diag-hint ok";
+    }
+    const box = document.getElementById("hk-diag");
+    if (box) box.style.display = "block";
+  }
+
+  async function ensureDefaultHotkey() {
+    const statusEl = document.getElementById("hk-status");
+    try {
+      const cur = await api().get_input_hotkey();
+      if (cur && cur.ok && cur.shortcut) {
+        if (cur.shortcut === "⇧⌘E" || cur.shortcut === "⌘E") {
+          await applyHotkeyPreset(EASY_HOTKEY);
+          return;
+        }
+        hotkey = cur.shortcut;
+        showHotkey(cur.shortcut);
+        if (statusEl) {
+          statusEl.textContent = `快捷键 ${cur.shortcut} 已就绪，可直接点下面体验`;
+          statusEl.className = "hk-status ok";
+        }
+        const acts = document.getElementById("hk-actions");
+        if (acts) acts.style.display = "flex";
+        return;
+      }
+    } catch {}
+    try {
+      const res = await api().set_input_hotkey(EASY_HOTKEY);
+      if (res.ok) {
+        hotkey = res.shortcut;
+        showHotkey(hotkey);
+        const acts = document.getElementById("hk-actions");
+        if (acts) acts.style.display = "flex";
+        if (statusEl) {
+          statusEl.textContent = `已设置 ${hotkey}，完成上方授权后去备忘录试试`;
+          statusEl.className = "hk-status ok";
+        }
+      }
+    } catch {}
+  }
+
+  async function applyHotkeyPreset(shortcut) {
+    const statusEl = document.getElementById("hk-status");
+    try { await api().enable_hotkey_mode(); } catch {}
+    const res = await api().set_input_hotkey(shortcut);
+    if (!res || !res.ok) {
+      if (statusEl) {
+        statusEl.textContent = `✗ ${(res && res.error) || "保存失败"}`;
+        statusEl.className = "hk-status err";
+      }
+      return false;
+    }
+    hotkey = res.shortcut;
+    showHotkey(hotkey);
+    document.querySelectorAll(".hk-preset").forEach((b) => {
+      b.classList.toggle("active", b.dataset.hk === hotkey);
+    });
+    if (statusEl) {
+      if (res.listener_ok) {
+        statusEl.textContent = `✓ 快捷键 ${hotkey} 已就绪，去别的 App 选中文字后按一下试试`;
+        statusEl.className = "hk-status ok";
+      } else {
+        statusEl.textContent = `✓ 已保存 ${hotkey}，请先完成上方「输入监控」授权`;
+        statusEl.className = "hk-status ok";
+      }
+    }
+    const acts = document.getElementById("hk-actions");
+    if (acts) acts.style.display = "flex";
+    return true;
+  }
+
+  function setupPermissionWizard() {
+    const statusEl = document.getElementById("perm-status");
+    const btnOpen = document.getElementById("perm-open");
+    const btnCheck = document.getElementById("perm-check");
+
+    async function refresh() {
+      let st;
+      try { st = await api().check_input_monitor_permission(); } catch { return; }
+      if (!st || !statusEl) return;
+      if (st.granted) {
+        statusEl.className = "perm-status ok";
+        statusEl.textContent = "✓ 已授权！现在可以在备忘录等任意 App 里用快捷键了";
+        if (permPollTimer) { clearInterval(permPollTimer); permPollTimer = null; }
+      } else {
+        statusEl.className = "perm-status wait";
+        statusEl.textContent = "⏳ 还没检测到授权 —— 点下面按钮打开设置，勾选 Skillless 后回来";
+      }
+    }
+
+    if (btnOpen) {
+      btnOpen.onclick = async () => {
+        try { await api().request_input_monitor_access(); } catch {}
+        if (statusEl) {
+          statusEl.className = "perm-status wait";
+          statusEl.textContent = "请在系统设置里打开 Skillless 开关，然后点「检测授权」或等几秒…";
+        }
+        if (!permPollTimer) permPollTimer = setInterval(refresh, 2000);
+      };
+    }
+    if (btnCheck) btnCheck.onclick = refresh;
+
+    refresh();
+    if (!permPollTimer) permPollTimer = setInterval(refresh, 2500);
+  }
+
+  function setupHotkeyPresets() {
+    document.querySelectorAll(".hk-preset").forEach((btn) => {
+      btn.onclick = () => applyHotkeyPreset(btn.dataset.hk);
+    });
+  }
+
+  async function setupHotkeyPrimary() {
+    try {
+      await api().enable_copy_mode();
+      window._copyModeOnly = false;
+    } catch {}
+  }
+
   async function renderHotkey() {
+    window._onboardingDemoOk = false;
+    window._copyModeOnly = false;
+    if (permPollTimer) { clearInterval(permPollTimer); permPollTimer = null; }
+
     stage.innerHTML = `
-      <h2 class="title">设快捷键，亲自试一次</h2>
-      <p class="lead">看完三大能力了，现在设一个快捷键 —— 在任何 App 复制文字后按一下，立刻弹胶囊精简。</p>
+      <h2 class="title">用 ⌘C 弹胶囊</h2>
+      <p class="lead">选中文字后按 <strong>⌘C</strong> 复制，Skillless 监听到剪贴板更新，自动弹出精简胶囊。</p>
+
+      <div class="copy-primary-card">
+        <h3>用法</h3>
+        <ol class="copy-steps">
+          <li>在任意 App 里<strong>选中一段文字</strong>（≥100 字）</li>
+          <li>按 <kbd>⌘</kbd><kbd>C</kbd> 复制</li>
+          <li>鼠标旁弹出精简胶囊</li>
+        </ol>
+      </div>
+
+      <div class="perm-wizard" id="perm-wizard">
+        <h3>先开「输入监控」权限</h3>
+        <ol class="perm-steps">
+          <li>点「一键开启权限」→ 自动跳转系统设置</li>
+          <li>在列表里<strong>打开 Skillless 开关</strong></li>
+          <li>看到绿灯后，去别的 App 按 ⌘C 试试</li>
+        </ol>
+        <div class="perm-actions">
+          <button type="button" class="btn primary" id="perm-open">一键开启权限</button>
+          <button type="button" class="btn ghost" id="perm-check">检测授权</button>
+        </div>
+        <div class="perm-status wait" id="perm-status">检测中…</div>
+      </div>
 
       <div class="hk-card">
-        <div class="hk-row">
-          <div class="hk-meta">
-            <div class="hk-label">精简快捷键</div>
-            <div class="hk-hint">点输入框，按下你想要的组合（推荐 <kbd>⌃</kbd> + <kbd>⌥</kbd> + <kbd>A</kbd>）</div>
-          </div>
-          <button type="button" class="hk-input" id="hk-input" tabindex="0" data-empty="true">
-            <span id="hk-input-text">点这里录入…</span>
+        <div class="hk-presets">
+          <button type="button" class="hk-preset active" data-hk="${EASY_HOTKEY}">
+            默认 · ⌘C
           </button>
         </div>
-        <div class="hk-status" id="hk-status"></div>
-        <div class="hk-actions" id="hk-actions" style="display:none">
-          <button type="button" class="btn ghost small" id="hk-default">还原推荐 ⌃⌥⌘A</button>
-          <button type="button" class="btn ghost small" id="hk-perm">打开输入监听设置</button>
-        </div>
-        <div class="hk-warn" id="hk-warn"></div>
-
-        <div class="hk-diag" id="hk-diag" style="display:none">
-          <div class="hk-diag-title">实时诊断 · 按下你设的快捷键，看哪一行亮起</div>
-          <div class="hk-diag-row" id="hk-diag-local">
-            <span class="hk-diag-dot"></span>
-            <span class="hk-diag-text">① 本窗口内监听：检测中…（在这个窗口里按一下试试，不需要任何权限）</span>
-          </div>
-          <div class="hk-diag-row" id="hk-diag-global">
-            <span class="hk-diag-dot"></span>
-            <span class="hk-diag-text">② 全局监听（其他 App）：检测中…（切到别的 App 按一下，需要 macOS 输入监听权限）</span>
-          </div>
-          <div class="hk-diag-row" id="hk-diag-match">
-            <span class="hk-diag-dot"></span>
-            <span class="hk-diag-text">③ 命中你设的组合：等待中…</span>
-          </div>
-          <div class="hk-diag-hint" id="hk-diag-hint"></div>
-        </div>
+        <div class="hk-status ok" id="hk-status">快捷键 ⌘C 已设置</div>
       </div>
 
       <div class="try-card">
         <div class="tc-head">
-          <span class="tc-step">①</span>
-          <span>立刻试精简：示例文字会「被复制 + 弹胶囊」</span>
+          <span class="tc-step">试</span>
+          <span>点按钮体验胶囊效果</span>
         </div>
         <pre class="tc-sample" id="tc-sample"></pre>
         <div class="tc-actions">
           <button type="button" class="btn primary big" id="tc-trigger">立即试精简 · 弹胶囊 →</button>
         </div>
         <div class="tc-note">
-          菜单栏 App 在跑时，复制 ≥ 100 字会自动弹胶囊；快捷键是手动入口，剪贴板有内容时按一下立刻再弹。<br />
-          macOS 需「<strong>输入监听</strong>」权限。精简满意后点「📥 归档」；想提问就复制问题后一键提问。
+          <strong>演示模式</strong>：预制精简结果，不走真实 API。正式用时再去下一步配 Key。
         </div>
       </div>`;
 
@@ -382,22 +451,15 @@
       document.getElementById("tc-sample").textContent = dt.text || "";
     } catch {}
 
-    // 读取当前 hotkey
-    try {
-      const cur = await api().get_input_hotkey();
-      if (cur && cur.ok && cur.shortcut) {
-        hotkey = cur.shortcut;
-        showHotkey(cur.shortcut);
-      }
-    } catch {}
-
-    setupHotkeyCapture();
+    await setupHotkeyPrimary();
+    setupPermissionWizard();
+    await ensureDefaultHotkey();
+    setupHotkeyPresets();
     setupTryDemo();
-    setupHotkeyDiag();
 
     clearActions();
     actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
-    actionsEl.appendChild(btn("继续 → 配 API Key", "primary", goNext));
+    actionsEl.appendChild(btn("继续 → AI 能力", "primary", goNext));
   }
 
   function showHotkey(shortcut) {
@@ -461,14 +523,23 @@
       }
       const shortcut = mods.join("") + key;
 
+      if (shortcut === "⇧⌘E") {
+        statusEl.innerHTML =
+          "⚠️ <strong>⇧⌘E</strong> 在「备忘录」里会被系统拿去<strong>标紫高亮</strong>，Skillless 收不到。建议换 <strong>⌃⌥E</strong>。";
+        statusEl.className = "hk-status err";
+        stop();
+        return;
+      }
+
       // 显式拦下被 macOS / 主流 App 强占的组合，避免用户白设
       const SYSTEM_RESERVED = new Set([
         "⌘C","⌘V","⌘X","⌘A","⌘Z","⌘S","⌘W","⌘Q","⌘N","⌘O","⌘P","⌘T","⌘R","⌘F",
         "⌘E","⌘D","⌘G","⌘H","⌘M","⌘L","⌘I","⌘B","⌘U",
+        "⇧⌘E","⇧⌘H","⇧⌘K",
         "⌘ ", "⌘SPACE", "⌘TAB", "⌃SPACE",
       ]);
       if (SYSTEM_RESERVED.has(shortcut)) {
-        statusEl.textContent = `「${shortcut}」被系统/常见 App 占用（剪切复制/关闭窗口等），换一组试试 —— 推荐 ⌃⌥⌘ + 字母`;
+        statusEl.textContent = `「${shortcut}」被系统/常见 App 占用，换一组试试 —— 推荐点上面的「好按 · ⌃⌥E」`;
         statusEl.className = "hk-status err";
         return;
       }
@@ -550,39 +621,8 @@
 
     // 还原推荐
     const dft = document.getElementById("hk-default");
-    if (dft) {
-      dft.onclick = async () => {
-        const res = await api().set_input_hotkey("⌃⌥⌘A");
-        if (res.ok) {
-          hotkey = res.shortcut;
-          showHotkey(hotkey);
-          const acts = document.getElementById("hk-actions");
-          if (acts) acts.style.display = "flex";
-          const warn = document.getElementById("hk-warn");
-          if (res.listener_ok) {
-            statusEl.textContent = `✓ 已还原推荐组合：${hotkey}，在任何 App 按一下就能弹胶囊`;
-            statusEl.className = "hk-status ok";
-            if (warn) warn.textContent = "";
-          } else {
-            statusEl.textContent = `✓ 已还原推荐：${hotkey}（菜单栏 App 启动后全局生效）`;
-            statusEl.className = "hk-status ok";
-            if (warn) {
-              warn.innerHTML = `
-                <span class="hk-warn-i">!</span>
-                没拿到「输入监听」权限；点右边按钮去系统设置勾上 <strong>Skillless / Python</strong>。`;
-            }
-          }
-        }
-      };
-    }
+    if (dft) dft.onclick = () => applyHotkeyPreset(EASY_HOTKEY);
 
-    // 打开输入监听权限设置
-    const perm = document.getElementById("hk-perm");
-    if (perm) {
-      perm.onclick = async () => {
-        try { await api().open_input_monitoring_settings(); } catch {}
-      };
-    }
   }
 
   function setupTryDemo() {
@@ -598,7 +638,8 @@
       // trigger_capsule 内部会先 pbcopy 再 spawn 胶囊进程
       const res = await api().trigger_capsule();
       if (res && res.ok) {
-        triggerBtn.textContent = "✓ 胶囊已弹起，看屏幕鼠标旁";
+        markDemoSuccess();
+        triggerBtn.textContent = "✓ 演示胶囊已弹起，看鼠标旁";
         setTimeout(() => {
           triggerBtn.textContent = "再来一次 ↻";
           triggerBtn.disabled = false;
@@ -615,6 +656,34 @@
         }, 3500);
       }
     };
+  }
+
+  /* 本窗口内按快捷键 → 直接触发演示胶囊（不依赖全局输入监听权限） */
+  function setupHotkeyDemoTrigger() {
+    let busy = false;
+    document.addEventListener("keydown", async (e) => {
+      if (STEPS[stepIndex] !== "hotkey" || !hotkey || busy) return;
+      const box = document.getElementById("hk-input");
+      if (box && box.classList.contains("capturing")) return;
+      const mods = [];
+      if (e.ctrlKey) mods.push("⌃");
+      if (e.altKey) mods.push("⌥");
+      if (e.shiftKey) mods.push("⇧");
+      if (e.metaKey) mods.push("⌘");
+      let k = (e.key || "").toUpperCase();
+      if (k === " ") k = "SPACE";
+      const allowedFn = ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12","SPACE"];
+      if (!(k.length === 1 || allowedFn.includes(k))) return;
+      const combo = mods.join("") + k;
+      if (combo !== hotkey) return;
+      busy = true;
+      try {
+        const res = await api().trigger_capsule();
+        if (res && res.ok) markDemoSuccess();
+      } finally {
+        busy = false;
+      }
+    }, true);
   }
 
   /* 实时诊断：每 0.7s 拉一次后端心跳，可视化告诉用户问题在哪一环 */
@@ -651,6 +720,8 @@
     }, true);
 
     async function tick() {
+      if (window._onboardingDemoOk) return;
+
       let d;
       try { d = await api().get_hotkey_diag(); } catch { return; }
       if (!d) return;
@@ -660,6 +731,12 @@
         return;
       }
       box.style.display = "block";
+
+      const demoAt = d.demo_capsule_at || 0;
+      if (demoAt > 0 && Date.now() / 1000 - demoAt < 30) {
+        markDemoSuccess();
+        return;
+      }
 
       // ① 本窗口内监听：以 JS keydown 为准
       const localAgeMs = lastLocalAt > 0 ? Date.now() - lastLocalAt : -1;
@@ -682,8 +759,8 @@
         setRow(rowGlobal, fresh ? "fresh" : "ok",
           `② 全局监听（其他 App）：${ago}s 前 ✓`);
       } else if (!d.listener_global) {
-        setRow(rowGlobal, "err",
-          "② 全局监听（其他 App）：监听器没挂上 ✗ —— 缺「输入监听」权限");
+        setRow(rowGlobal, "wait",
+          "② 全局监听（其他 App）：演示可跳过 —— 本窗口按键或点按钮即可");
       } else {
         setRow(rowGlobal, "wait",
           `② 全局监听（其他 App）：等待中…（切到 Safari/便签等任意 App，按 ${d.configured}）`);
@@ -707,10 +784,8 @@
           <strong>${lastLocalCombo}</strong>，或换一组重按。`;
         hint.className = "hk-diag-hint warn";
       } else if (!globalSeen && d.listener_global && localOk) {
-        hint.innerHTML = `本窗口能收到按键 ✓，但其他 App 里按收不到 ——
-          点上方「打开输入监听设置」把 <strong>Python</strong> 勾上，然后
-          <strong>完全 ⌘Q 退掉再 onboard.sh 重启</strong>（macOS 权限对进程是启动时绑定的）。`;
-        hint.className = "hk-diag-hint err";
+        hint.innerHTML = `本窗口能收到按键 ✓。其他 App 里要用快捷键，再去开「输入监听」权限；<strong>演示不用管</strong>。`;
+        hint.className = "hk-diag-hint";
       } else if (d.match) {
         hint.innerHTML = `全链路通 ✓ 胶囊已经弹了，你可以一直按 <strong>${d.configured}</strong> 复弹。`;
         hint.className = "hk-diag-hint ok";
@@ -722,7 +797,7 @@
     }
 
     tick();
-    const id = setInterval(tick, 600);
+    const id = setInterval(tick, 1500);
     window._hkDiagTimer && clearInterval(window._hkDiagTimer);
     window._hkDiagTimer = id;
   }
@@ -731,12 +806,49 @@
    * Step 4 · API Key（可跳过：清楚说明有/无 Key 的差异）
    * ============================================================ */
   async function renderApi() {
-    let status = { has_key: false, masked: "" };
+    let status = { has_key: false, masked: "", platform_provided: false, free_tier: false };
     try {
       const r = await api().get_api_status();
       if (r && r.ok) status = r;
     } catch {}
     hasKey = status.has_key;
+
+    if (status.platform_provided || status.free_tier) {
+      stage.innerHTML = `
+        <h2 class="title">AI 精简已内置 · 免配置</h2>
+        <p class="lead">Skillless 已自带 AI 能力，<strong>不用申请、不用粘贴 API Key</strong>，复制就能精简归档。当前阶段免费给大家用。</p>
+        <div class="api-builtin-card">
+          <div class="api-builtin-badge">✓ 已就绪</div>
+          <ul class="api-list">
+            <li class="ok yes"><strong>① 选中就精简</strong> · ⌘C 复制即去口水、结构化</li>
+            <li class="ok yes"><strong>② 一键归档</strong> · 满意一键写进 .md</li>
+            <li class="ok yes"><strong>③ 越用越懂你</strong> · AI 读你的笔记后做关联补充</li>
+          </ul>
+          <p class="api-builtin-note">以后可能改成投币模式；现阶段直接点继续即可。</p>
+        </div>
+        <details class="api-advanced">
+          <summary>高级 · 想用自己的 API Key？</summary>
+          <div class="api-input-row" style="margin-top:10px">
+            <input type="password" id="api-key-input" placeholder="粘贴 sk- 开头的 Key（可选）" autocomplete="off" />
+            <button type="button" class="btn ghost" id="api-save">保存</button>
+          </div>
+          <div class="api-input-hint" id="api-status"></div>
+        </details>`;
+      const saveBtn = document.getElementById("api-save");
+      if (saveBtn) {
+        saveBtn.onclick = async () => {
+          const v = (document.getElementById("api-key-input").value || "").trim();
+          const statusEl = document.getElementById("api-status");
+          if (!v) { statusEl.textContent = "留空即可，已用内置 AI"; return; }
+          const res = await api().save_api(v);
+          statusEl.textContent = res.ok ? `✓ 已切换为你自己的 Key` : `✗ ${res.error}`;
+        };
+      }
+      clearActions();
+      actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
+      actionsEl.appendChild(btn("继续 → 选文档", "primary", goNext));
+      return;
+    }
 
     stage.innerHTML = `
       <h2 class="title">配 DeepSeek API · 开启 AI 精简</h2>
@@ -874,8 +986,8 @@
 
     clearActions();
     actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
-    const finishBtn = btn("开始体验", "primary", doFinish, { disabled: !picked, id: "btn-finish" });
-    actionsEl.appendChild(finishBtn);
+    const nextBtn = btn("继续 → 看知识库", "primary", goNext, { disabled: !picked, id: "btn-finish" });
+    actionsEl.appendChild(nextBtn);
     if (picked) renderPicked(picked);
   }
 
@@ -963,11 +1075,112 @@
     welcome: renderWelcome,
     refine: renderRefine,
     how: renderHow,
-    ask: renderAsk,
     hotkey: renderHotkey,
     api: renderApi,
     pick: renderPick,
+    kb: renderKb,
   };
+
+  async function renderKb() {
+    let summary = {};
+    try { summary = (await api().get_summary()) || {}; } catch {}
+    const mdLabel = escapeHtml(summary.default_display || summary.default_md || "（未设置）");
+    const kbLabel = escapeHtml(summary.kb_display || summary.kb_path || "（未设置）");
+    const filled = !!summary.default_md;
+
+    stage.innerHTML = `
+      <h2 class="title">越用越懂你：AI 会读你的笔记</h2>
+      <p class="lead">
+        每次精简，AI 都会顺手扫一下你这个 .md，<strong>主动提示重复、补出遗漏的相关知识</strong>——
+        像一个懂你工作习惯的同事帮你整理。先看个三列对比 👇
+      </p>
+
+      <div class="kb-demo">
+        <div class="kb-demo-col kb-col-src">
+          <div class="kb-col-head">
+            <span class="kb-col-tag">① 你复制的</span>
+            <span class="kb-col-sub">口语化原文</span>
+          </div>
+          <div class="kb-col-body">
+            <p>今天测了下动态徽章 AB，推全数据是 +5,116 单/天。分事业部看了，外卖闪购效果不一样。负责人张三李四王五，4 月开始 6 月结束。后面还有动态门店头图的实验。</p>
+          </div>
+        </div>
+
+        <div class="kb-demo-col kb-col-kb">
+          <div class="kb-col-head">
+            <span class="kb-col-tag">② 知识库里已有</span>
+            <span class="kb-col-sub">顺手买信息.md · 片段</span>
+          </div>
+          <div class="kb-col-body kb-col-mono">
+            <div class="kb-md-line">## 实验</div>
+            <div class="kb-md-line">- 动态徽章项目（4 月立项）</div>
+            <div class="kb-md-line">- 业务方：李四 / 王五</div>
+            <div class="kb-md-line">## 埋点</div>
+            <div class="kb-md-line">- ab_id, exp_group, biz_unit</div>
+            <div class="kb-md-line">## 版本</div>
+            <div class="kb-md-line">- v3.2 推全计划</div>
+          </div>
+        </div>
+
+        <div class="kb-demo-col kb-col-out">
+          <div class="kb-col-head">
+            <span class="kb-col-tag primary">③ AI 输出</span>
+            <span class="kb-col-sub">精简 + 旁白补充</span>
+          </div>
+          <div class="kb-col-body">
+            <div class="kb-out-section">
+              <h4>动态徽章 AB · 推全</h4>
+              <ul>
+                <li><strong>结论</strong>：推全 +5,116 单/天</li>
+                <li><strong>分事业部</strong>：外卖、闪购效果不一致</li>
+                <li><strong>人员</strong>：张三、李四、王五</li>
+                <li><strong>时间</strong>：4 月 → 6 月</li>
+                <li><strong>后续</strong>：动态门店头图实验（待启）</li>
+              </ul>
+            </div>
+            <div class="kb-out-aside">
+              <div class="kb-aside-head">📚 与你的笔记</div>
+              <div class="kb-aside-line">
+                <span class="kb-aside-tag warn">⚠️ 似乎重复</span>
+                <span>动态徽章项目你 4 月已立项，这次是有数据了</span>
+              </div>
+              <div class="kb-aside-line">
+                <span class="kb-aside-tag tip">💡 旁白补充</span>
+                <span>埋点 <code>biz_unit</code> 刚好对应这次的分事业部维度</span>
+              </div>
+              <div class="kb-aside-line">
+                <span class="kb-aside-tag tip">💡 旁白补充</span>
+                <span>张三是这次新出现的人员，老笔记里没记过</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kb-current">
+        <div class="kb-row"><span class="kb-k">默认 .md</span><span class="kb-v">${mdLabel}</span></div>
+        <div class="kb-row"><span class="kb-k">知识库目录</span><span class="kb-v">${kbLabel}</span></div>
+        <div class="kb-hint">
+          ${filled
+            ? `<strong>胶囊右下角会出现「已参考你的笔记」</strong>的小提示，看到它就说明 AI 读了上下文。`
+            : `还没设默认 .md？点「上一步」回到第 6 步选一个。`}
+          <br/>胶囊里点 <strong>⚙ 或 ›</strong>，菜单栏点 <strong>📥 → 打开后台</strong>，可随时切换、看历史。
+        </div>
+      </div>
+
+      <div class="kb-tips">
+        <h4>用得越多越懂你的小习惯</h4>
+        <ul>
+          <li><strong>同一类内容写在同一个 .md</strong>：会议纪要 / 灵感 / 学习笔记分开放，AI 旁白更准。</li>
+          <li><strong>顶部写一段「这是什么文档」</strong>：AI 读到后自动按场景调整输出。</li>
+          <li><strong>不用强求完整</strong>：旁白只在确实有重复或可补时才出现，干净不啰嗦。</li>
+        </ul>
+      </div>`;
+
+    clearActions();
+    actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
+    actionsEl.appendChild(btn("完成 · 开始使用", "primary", doFinish));
+  }
 
   function render() {
     renderDots();
@@ -977,5 +1190,8 @@
   }
 
   document.getElementById("btn-cancel").onclick = onCancel;
+  document.addEventListener("visibilitychange", () => {
+    document.body.classList.toggle("onboarding-paused", document.hidden);
+  });
   waitForApi().then(() => render());
 })();

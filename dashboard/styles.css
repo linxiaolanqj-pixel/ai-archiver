@@ -128,15 +128,16 @@ body.theme-dark .dot-spin { border-color: #1f2733; border-top-color: #38bdf8; }
 }
 .brand .brand-mark {
   width: 22px; height: 22px;
-  border-radius: 6px;
-  overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .brand .brand-mark img {
   width: 100%; height: 100%;
-  object-fit: contain;
   display: block;
+  object-fit: cover;
+  border-radius: 28%;
+  clip-path: inset(0 round 28%);
+  -webkit-clip-path: inset(0 round 28%);
 }
 .brand .brand-mark.no-img {
   background: #0f172a;
@@ -840,3 +841,342 @@ body.theme-dark .foot-icon { color: #475569; }
 body.theme-dark .foot-icon:hover { background: #161d2b; color: #e2e8f0; }
 body.theme-dark .foot-ver { color: #475569; }
 body.theme-dark .nav-item.active::before { background: #38bdf8; }
+
+.kb-aware-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #0369a1;
+  background: #e0f2fe;
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: inline-block;
+}
+body.theme-dark .kb-aware-tip { background: #0c1422; color: #7dd3fc; }
+
+.fav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.1s, border-color 0.1s;
+}
+.fav-item:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.fav-item.current { background: #eff8ff; border-color: #7dd3fc; color: #0369a1; }
+.fav-dot { width: 16px; color: #94a3b8; font-size: 12px; flex: 0 0 auto; }
+.fav-item.current .fav-dot { color: #0ea5e9; font-weight: 700; }
+.fav-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+body.theme-dark .fav-item { background: #0e131c; border-color: #1f2733; color: #cbd5e1; }
+body.theme-dark .fav-item:hover { background: #161d2b; border-color: #2c3340; }
+body.theme-dark .fav-item.current { background: #0c1422; border-color: #38bdf8; color: #7dd3fc; }
+body.theme-dark .fav-dot { color: #475569; }
+
+/* —— 纠错词典（首页 · 知识库 Tab 内嵌）—— */
+.dict-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 4px 0 12px;
+  table-layout: fixed;
+}
+.dict-table th, .dict-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  vertical-align: middle;
+  word-break: break-all;
+}
+.dict-table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f8fafc;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dict-table th.src, .dict-table td.src { width: 86px; text-align: left; }
+.dict-table th.num, .dict-table td.num { width: 64px; text-align: right; color: #94a3b8; }
+.dict-table th.act, .dict-table td.act { width: 70px; text-align: right; }
+.dict-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.dict-src-auto {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+.dict-src-manual {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+.dict-tip {
+  font-size: 11.5px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin: -2px 0 12px;
+  line-height: 1.5;
+}
+.dict-table td code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  padding: 2px 7px;
+  color: #0f172a;
+}
+.dict-table tr:hover td { background: #fafbfc; }
+.dict-empty {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 14px 4px;
+  border: 1px dashed #e5e7eb;
+  border-radius: 8px;
+  background: #fafbfc;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+.dict-add-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 4px;
+}
+.dict-add-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  outline: none;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.dict-add-row input:focus { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12); }
+.dict-add-row .btn { flex: 0 0 auto; }
+
+body.theme-dark .dict-table th { background: #0e131c; color: #64748b; }
+body.theme-dark .dict-table th, body.theme-dark .dict-table td { border-bottom-color: #1f2733; }
+body.theme-dark .dict-table td code { background: #0e131c; border-color: #1f2733; color: #e2e8f0; }
+body.theme-dark .dict-table tr:hover td { background: #161d2b; }
+body.theme-dark .dict-empty { background: #0e131c; border-color: #1f2733; color: #64748b; }
+body.theme-dark .dict-add-row input { background: #0e131c; border-color: #1f2733; color: #e2e8f0; }
+body.theme-dark .dict-add-row input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.15); }
+body.theme-dark .dict-src-auto { background: #422006; color: #fcd34d; border-color: #78350f; }
+body.theme-dark .dict-src-manual { background: #1e293b; color: #cbd5e1; border-color: #1f2733; }
+body.theme-dark .dict-tip { background: #1a1408; color: #fcd34d; border-color: #422006; }
+
+/* —— 日志 —— */
+.log-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.log-tab {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #334155;
+}
+.log-tab small { display: block; color: #94a3b8; font-size: 11px; margin-top: 2px; }
+.log-tab.active { border-color: #0284c7; background: #eff6ff; color: #0369a1; }
+.log-tab.empty { opacity: 0.55; }
+.log-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.log-view {
+  margin: 0;
+  padding: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+body.theme-dark .log-tab { background: #161d2b; border-color: #1f2733; color: #cbd5e1; }
+body.theme-dark .log-tab.active { background: #0c1422; border-color: #38bdf8; color: #7dd3fc; }
+body.theme-dark .log-view { background: #0a0f18; color: #cbd5e1; }
+
+/* —— 档案 Tab（三层人格记忆） —— */
+.profile-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.profile-card {
+  margin-bottom: 0;
+}
+.profile-card h3 {
+  align-items: center;
+}
+.profile-card h3 .hint {
+  font-weight: 500;
+}
+.profile-hint {
+  font-size: 12px;
+  color: #64748b;
+  background: #f8fafc;
+  border-left: 3px solid #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 10px;
+  line-height: 1.55;
+}
+.profile-textarea {
+  width: 100%;
+  height: 320px;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  resize: vertical;
+  outline: none;
+  tab-size: 2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.profile-textarea:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+.profile-save-btn {
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+body.theme-dark .profile-hint {
+  background: #0e131c;
+  border-left-color: #1f2733;
+  color: #94a3b8;
+}
+body.theme-dark .profile-textarea {
+  background: #0e131c;
+  border-color: #1f2733;
+  color: #e2e8f0;
+}
+body.theme-dark .profile-textarea:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+/* ============ 反馈 / 问题报告 ============ */
+.fb-card { padding: 18px 20px; }
+.fb-card h3 { margin: 0 0 10px 0; font-size: 14px; }
+.fb-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  resize: vertical;
+  outline: none;
+}
+.fb-textarea:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+.fb-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 6px; font-size: 11.5px; color: #64748b;
+}
+.fb-actions {
+  display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end;
+}
+.fb-result { margin-top: 10px; min-height: 0; }
+.fb-result:empty { display: none; }
+.fb-result .fb-ok {
+  color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0;
+  padding: 8px 12px; border-radius: 6px; font-size: 12.5px;
+}
+.fb-result .fb-warn {
+  color: #b45309; background: #fffbeb; border: 1px solid #fde68a;
+  padding: 8px 12px; border-radius: 6px; font-size: 12.5px;
+}
+.fb-result .fb-info {
+  color: #475569; background: #f1f5f9; padding: 8px 12px;
+  border-radius: 6px; font-size: 12.5px;
+}
+.fb-settings { display: flex; flex-direction: column; gap: 14px; }
+.fb-setting-row {
+  display: grid; grid-template-columns: 110px 1fr; gap: 10px 14px;
+  align-items: center;
+}
+.fb-setting-row .hint {
+  grid-column: 2; font-size: 11.5px; color: #94a3b8; margin-top: 2px;
+}
+.fb-label { color: #475569; font-size: 13px; font-weight: 500; }
+.fb-input {
+  padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
+  font-size: 13px; outline: none; min-height: 32px; width: 100%;
+}
+.fb-input:focus {
+  border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+.fb-preview {
+  background: #0f172a; color: #cbd5e1; padding: 12px 14px;
+  border-radius: 8px; font-size: 11px; line-height: 1.55;
+  max-height: 320px; overflow: auto;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+body.theme-dark .fb-textarea {
+  background: #0e131c; border-color: #1f2733; color: #e2e8f0;
+}
+body.theme-dark .fb-input {
+  background: #0e131c; border-color: #1f2733; color: #e2e8f0;
+}
+body.theme-dark .fb-result .fb-ok {
+  background: #052e26; border-color: #065f46; color: #6ee7b7;
+}
+body.theme-dark .fb-result .fb-warn {
+  background: #2a1b04; border-color: #92400e; color: #fcd34d;
+}
+body.theme-dark .fb-result .fb-info {
+  background: #0e131c; color: #94a3b8;
+}

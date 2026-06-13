@@ -118,7 +118,6 @@ ai-archiver/
 | 名称 | 命令 | 行为 |
 |---|---|---|
 | 归档 | `~/tools/ai-archiver/run.sh quick` | 弹 ✅❌ 浮层，确认即写入默认 md |
-| AI 转译 | `~/tools/ai-archiver/run.sh translate polish` | 润色后写入；可换 `i18n` / `structure` |
 | 随便问 | `~/tools/ai-archiver/run.sh ask` | 把默认 md 喂给 LLM 单轮 Q&A |
 
 ## 全局快捷键
@@ -127,7 +126,7 @@ ai-archiver/
 
 1. 菜单栏 `📥 归档` → `📊 打开后台…`
 2. 进入 `⌨️ 快捷键`
-3. 点击「归档 / AI 转译 / 随便问」任一输入框
+3. 点击「归档 / 随便问」任一输入框
 4. 直接按组合键，例如 `⌃⌥⌘A`
 5. 如果系统没响应，去「系统设置 → 隐私与安全性 → 辅助功能」允许 Terminal / Python / Cursor
 
@@ -160,11 +159,6 @@ echo "随便一段文字" | ARCHIVER_MODE=raw ./run.sh daily
 # 极简 ✅ / ❌ 浮层（读剪贴板，写默认 md）
 ./run.sh quick
 ./run.sh quick --raw      # 强制原文，不调 LLM
-
-# AI 转译（读剪贴板，写默认 md）
-./run.sh translate polish
-./run.sh translate i18n
-./run.sh translate structure
 
 # 随便问（基于默认 md）
 ./run.sh ask

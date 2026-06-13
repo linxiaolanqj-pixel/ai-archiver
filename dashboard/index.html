@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Skillless · 后台</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* 版本号样式（行内，避免污染 styles.css；release.sh 会同步更新文本） */
+    .app-version { font-size: 11px; color: #94a3b8; margin-left: 8px; opacity: 0.7; font-weight: 400; }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -15,17 +19,20 @@
                onerror="this.parentNode.classList.add('no-img'); this.remove();" />
         </span>
         <span class="brand-name">Skillless</span>
+        <span class="app-version" id="app-version">v0.4.15</span>
       </div>
       <nav class="nav">
         <div class="nav-group">
           <button type="button" class="nav-item active" data-tab="home"><span class="nav-ico">●</span><span class="nav-label">首页</span></button>
+          <button type="button" class="nav-item" data-tab="profile"><span class="nav-ico">☰</span><span class="nav-label">档案</span></button>
           <button type="button" class="nav-item" data-tab="history"><span class="nav-ico">⊟</span><span class="nav-label">历史</span></button>
           <button type="button" class="nav-item" data-tab="dict"><span class="nav-ico">⊘</span><span class="nav-label">黑名单</span></button>
-          <button type="button" class="nav-item" data-tab="hotkey"><span class="nav-ico">⌘</span><span class="nav-label">快捷键</span></button>
+          <button type="button" class="nav-item" data-tab="logs"><span class="nav-ico">≡</span><span class="nav-label">日志</span></button>
+          <button type="button" class="nav-item" data-tab="feedback"><span class="nav-ico">✉</span><span class="nav-label">反馈</span></button>
         </div>
       </nav>
       <div class="sidebar-foot">
-        <div class="foot-ver">Skillless · v1.0</div>
+        <div class="foot-ver">Skillless · <span class="app-version" id="app-version-foot">v0.4.15</span></div>
       </div>
     </aside>
 

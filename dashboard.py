@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """Skillless 后台管理 App。
 
-四个 Tab：
-  - 首页：最后复制、累计字数、节省时间
-  - 历史：剪贴板历史（文字+图片）
-  - 词典：跳过名单管理（auto/manual 分组）
-  - 快捷键：三类入口的 Shortcuts 桥接配置
+四个 Tab：首页 / 历史 / 黑名单 / 日志
 """
 
 from __future__ import annotations
@@ -34,7 +30,7 @@ from settings_util import (
     display_target,
     get_app_theme,
     get_default_target,
-    get_dictionary,
+    get_dictionary as _get_skip_dict,
     get_hotkeys,
     get_quick_pick_targets,
     kb_root,
@@ -47,14 +43,35 @@ from settings_util import (
     set_default_target,
     set_hotkey,
 )
+from dictionary_util import (
+    load_dictionary,
+    add_entry as dict_add_entry,
+    delete_entry as dict_delete_entry,
+)
+from profile_util import (
+    ensure_profile,
+    load_profile,
+    profile_dir_path,
+    save_profile_part as _profile_save_part,
+)
 from picker_util import choose_md_file, choose_new_md_file
 from hotkey_util import is_reasonable_hotkey, normalize_hotkey
 from telemetry import track as _track, summary as _track_summary, recent as _track_recent
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-DASHBOARD_DIR = SCRIPT_DIR / "dashboard"
-PY = str(SCRIPT_DIR / ".venv/bin/python") if (SCRIPT_DIR / ".venv/bin/python").exists() else sys.executable
-ARCHIVER_PY = SCRIPT_DIR / "archiver.py"
+from app_paths import data_dir, resource_dir
+
+SCRIPT_DIR = resource_dir()
+DASHBOARD_DIR = resource_dir() / "dashboard"
+PY = str(resource_dir() / ".venv/bin/python") if (resource_dir() / ".venv/bin/python").exists() else sys.executable
+ARCHIVER_PY = resource_dir() / "archiver.py"
+
+APP_LOGS: list[tuple[str, str]] = [
+    ("clip_watcher.log", "复制监听"),
+    ("capsule_spawn.log", "胶囊启动"),
+    ("last_launch.log", "启动记录"),
+    ("startup.log", "报错详情"),
+    ("feedback.log", "反馈意见"),
+]
 
 
 class DashboardApi:
@@ -233,16 +250,70 @@ class DashboardApi:
         clear_history()
         return {"ok": True}
 
-    def get_dictionary(self) -> dict:
-        return get_dictionary()
+    def get_skip_dict(self) -> dict:
+        """黑名单 / 跳过规则（manual + auto + builtin）。"""
+        return _get_skip_dict()
 
     def add_skip(self, pattern: str) -> dict:
         ok = add_manual_skip(pattern)
-        return {"ok": ok, "dict": get_dictionary()}
+        return {"ok": ok, "dict": _get_skip_dict()}
 
     def remove_skip(self, pattern: str, scope: str = "manual") -> dict:
         ok = remove_skip(pattern, scope=scope)
-        return {"ok": ok, "dict": get_dictionary()}
+        return {"ok": ok, "dict": _get_skip_dict()}
+
+    # —— 纠错词典（路线 A）——
+    def get_dictionary(self) -> dict:
+        """纠错词典内容：{"entries": [...]}。"""
+        try:
+            return load_dictionary()
+        except Exception:
+            return {"entries": []}
+
+    def add_dictionary_entry(self, wrong: str, right: str, source: str = "manual") -> dict:
+        try:
+            r = dict_add_entry(wrong, right, ctx="dashboard", source=source)
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:120]}
+        _track("click", "dict_add", scope="dashboard",
+               props={"ok": bool(r.get("ok")), "source": source})
+        return r
+
+    def delete_dictionary_entry(self, wrong: str) -> dict:
+        try:
+            r = dict_delete_entry(wrong)
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:120]}
+        _track("click", "dict_del", scope="dashboard",
+               props={"ok": bool(r.get("ok"))})
+        return r
+
+    # —— 三层档案（SOUL / USER / TOOLS）——
+    def get_profile(self) -> dict:
+        """后台「档案」Tab 拉取三份 .md 当前内容。"""
+        try:
+            return load_profile()
+        except Exception:
+            return {"soul": "", "user": "", "tools": ""}
+
+    def save_profile_part(self, kind: str, content: str) -> dict:
+        """保存某一份档案。kind 只能是 soul|user|tools。"""
+        try:
+            r = _profile_save_part(kind, content)
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:120]}
+        _track("click", "save_profile", scope="dashboard",
+               props={"kind": kind, "ok": bool(r.get("ok"))})
+        return r
+
+    def open_profile_dir(self) -> dict:
+        """在 Finder 中打开 profile 目录。"""
+        try:
+            subprocess.Popen(["open", profile_dir_path()])
+            _track("click", "open_profile_dir", scope="dashboard")
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:120]}
 
     def get_hotkeys(self) -> dict:
         return get_hotkeys()
@@ -261,8 +332,34 @@ class DashboardApi:
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
-    def open_shortcuts_app(self) -> dict:
-        subprocess.run(["open", "-a", "Shortcuts"], check=False)
+    def list_logs(self) -> dict:
+        items = []
+        for name, label in APP_LOGS:
+            p = data_dir() / name
+            st = p.stat() if p.exists() else None
+            items.append({
+                "name": name,
+                "label": label,
+                "exists": p.exists(),
+                "size": st.st_size if st else 0,
+                "mtime": int(st.st_mtime) if st else 0,
+            })
+        return {"items": items, "dir": str(data_dir())}
+
+    def read_log(self, name: str, tail: int = 300) -> dict:
+        allowed = {n for n, _ in APP_LOGS}
+        if name not in allowed:
+            return {"ok": False, "error": "未知日志"}
+        p = data_dir() / name
+        if not p.exists():
+            return {"ok": True, "content": "", "empty": True, "lines": 0}
+        text = p.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
+        content = "\n".join(lines[-max(1, int(tail)):])
+        return {"ok": True, "content": content, "empty": not content.strip(), "lines": len(lines)}
+
+    def open_logs_folder(self) -> dict:
+        subprocess.run(["open", str(data_dir())], check=False)
         return {"ok": True}
 
     def open_kb(self) -> dict:
@@ -272,13 +369,12 @@ class DashboardApi:
 
     def trigger_capsule(self) -> dict:
         """非阻塞 spawn 胶囊（用当前剪贴板内容）。"""
-        quick = SCRIPT_DIR / "quick_capsule.py"
-        if not quick.exists():
-            return {"ok": False, "error": "缺少 quick_capsule.py"}
+        from bootkit import child_cmd
+
         try:
             subprocess.Popen(
-                [PY, str(quick)],
-                cwd=str(SCRIPT_DIR),
+                child_cmd("capsule"),
+                cwd=str(data_dir()),
                 env=os.environ.copy(),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -289,7 +385,7 @@ class DashboardApi:
             return {"ok": False, "error": str(e)[:120]}
 
     def open_design_report(self) -> dict:
-        p = SCRIPT_DIR / "docs" / "ui-design-report.html"
+        p = resource_dir() / "docs" / "ui-design-report.html"
         if not p.exists():
             return {"ok": False, "error": "报告未生成"}
         subprocess.run(["open", str(p)], check=False)
@@ -358,6 +454,26 @@ class DashboardApi:
             "default_target_display": display_target(stored),
         }
 
+    def switch_default_target(self, target: str) -> dict:
+        """点击常用文档时直接切换默认（无需再开 Finder）。"""
+        s = (target or "").strip()
+        if not s:
+            return {"ok": False, "error": "空 target"}
+        try:
+            cfg = load_config()
+            abs_p = resolve_target_path(s, cfg)
+            if not abs_p.exists():
+                return {"ok": False, "error": f"文件不存在：{abs_p}"}
+            set_default_target(s)
+            return {
+                "ok": True,
+                "default_target": s,
+                "default_target_path": str(abs_p),
+                "default_target_display": display_target(s),
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:120]}
+
     def create_default_target(self) -> dict:
         """新建一个 .md（仍走 kb_root 模板）并设为默认归档文档。"""
         cfg = load_config()
@@ -372,6 +488,75 @@ class DashboardApi:
             "default_target_display": display_target(rel),
         }
 
+    # —— 反馈 / 问题报告 ——
+    def feedback_status(self) -> dict:
+        """返回反馈通道当前状态（前端用来决定按钮文案）。"""
+        try:
+            from feedback_collector import get_feedback_webhook, _resolve_user_handle
+            webhook = get_feedback_webhook()
+            name, machine = _resolve_user_handle()
+            state = load_state()
+            fb = state.get("feedback", {}) or {}
+            return {
+                "webhook_configured": bool(webhook),
+                "channel": "feishu" if webhook else "",
+                "user_handle": name,
+                "machine": machine,
+                "auto_error_enabled": bool(fb.get("auto_error_enabled", True)),
+                "first_run_notified": bool(fb.get("first_run_notified", False)),
+                "custom_webhook": fb.get("custom_webhook", ""),
+            }
+        except Exception as e:
+            return {"webhook_configured": False, "error": str(e)[:200]}
+
+    def feedback_preview(self, description: str = "") -> dict:
+        """返回 payload 预览（用户看到「会发什么」）+ 卡片格式 JSON。"""
+        try:
+            from feedback_collector import build_payload, to_feishu_card
+            payload = build_payload(kind="user_report", description=description)
+            return {"ok": True, "payload": payload, "card": to_feishu_card(payload)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+
+    def feedback_send(self, description: str) -> dict:
+        """主动发送一份反馈。"""
+        text = (description or "").strip()
+        if not text:
+            return {"ok": False, "error": "请先填写反馈内容"}
+        try:
+            from feedback_collector import build_payload, send_feedback
+            payload = build_payload(kind="user_report", description=text)
+            r = send_feedback(payload)
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:200]}
+        # 本地备份
+        try:
+            from datetime import datetime
+            line = f"{datetime.now().isoformat(timespec='seconds')}\n{text}\n---\n"
+            (data_dir() / "feedback.log").open("a", encoding="utf-8").write(line)
+        except Exception:
+            pass
+        _track("click", "feedback_send", scope="dashboard",
+               props={"ok": bool(r.get("ok")), "fallback": r.get("fallback", "")})
+        return r
+
+    def feedback_save_settings(self, opts: dict) -> dict:
+        """保存反馈相关设置：user_handle / custom_webhook / auto_error_enabled / first_run_notified。"""
+        opts = opts or {}
+        state = load_state()
+        fb = dict(state.get("feedback", {}) or {})
+        for k in ("user_handle", "custom_webhook"):
+            if k in opts:
+                fb[k] = (opts.get(k) or "").strip()
+        if "auto_error_enabled" in opts:
+            fb["auto_error_enabled"] = bool(opts["auto_error_enabled"])
+        if "first_run_notified" in opts:
+            fb["first_run_notified"] = bool(opts["first_run_notified"])
+        state["feedback"] = fb
+        save_state(state)
+        _track("click", "feedback_save_settings", scope="dashboard")
+        return {"ok": True, "feedback": fb}
+
     def archive_text(self, text: str, target: str | None = None, mode: str = "auto") -> dict:
         """从后台手动归档某段文字（用于历史 Tab 的「再次归档」）。"""
         from settings_util import get_default_target
@@ -382,12 +567,15 @@ class DashboardApi:
         if not target:
             return {"ok": False, "error": "未设置默认文档"}
 
-        cmd = [PY, str(ARCHIVER_PY), "daily", "--target", target, "--from-stdin", "--no-notify"]
-        if mode == "raw":
-            cmd += ["--mode", "raw"]
+        from bootkit import child_cmd
+
+        extra = ["--mode", "raw"] if mode == "raw" else []
+        cmd = child_cmd(
+            "archiver", "daily", "--target", target, "--from-stdin", "--no-notify", *extra,
+        )
         try:
             r = subprocess.run(
-                cmd, input=text, capture_output=True, text=True, timeout=180, cwd=str(SCRIPT_DIR),
+                cmd, input=text, capture_output=True, text=True, timeout=180, cwd=str(data_dir()),
             )
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": "超时"}
@@ -405,6 +593,11 @@ class DashboardApi:
 def run_dashboard() -> int:
     if not DASHBOARD_DIR.joinpath("index.html").exists():
         raise FileNotFoundError(f"缺少 dashboard/index.html: {DASHBOARD_DIR}")
+    # 启动时确保三层档案存在；出错只警告
+    try:
+        ensure_profile()
+    except Exception as _e:
+        print(f"[warn] ensure_profile failed: {_e}", flush=True)
     api = DashboardApi()
     index = DASHBOARD_DIR / "index.html"
     window = webview.create_window(

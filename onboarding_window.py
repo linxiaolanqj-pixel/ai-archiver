@@ -14,7 +14,7 @@ import traceback
 import webview
 from pathlib import Path
 
-from onboarding import SCRIPT_DIR
+from app_paths import data_dir, resource_dir
 from settings_util import (
     display_target,
     get_api_key,
@@ -32,7 +32,7 @@ DEMO_SAMPLE_TEXT = (
     "周五 18:00 前补埋点 button_v2_click，新人券分歧下周复盘 —— 王五负责。"
 )
 
-ONBOARDING_UI = SCRIPT_DIR / "onboarding"
+ONBOARDING_UI = resource_dir() / "onboarding"
 
 
 _PICK_EXISTING_SCRIPT = '''
@@ -74,12 +74,7 @@ class OnboardingApi:
         self.success: bool = False
 
     def get_meta(self) -> dict:
-        # 已有 hotkey 就主动挂上监听，免得用户必须重设一次
-        try:
-            if (get_hotkeys().get("input") or {}).get("shortcut"):
-                self._ensure_hotkey_listener()
-        except Exception:
-            pass
+        # 不在启动时挂快捷键监听（NSEvent 双监听器很重）；到 Hotkey 步再 set_input_hotkey 时挂
         return {"has_key": bool(get_api_key().startswith("sk-"))}
 
     def _adopt_md_file(self, abs_path: Path) -> dict:
@@ -180,6 +175,14 @@ class OnboardingApi:
                 return {"ok": False, "error": "需要至少一个修饰键 + 一个字母键"}
             info = set_hotkey("input", shortcut=norm)
             saved = info.get("shortcut", norm)
+            from settings_util import load_state, save_state
+
+            state = load_state()
+            state["hotkey_enabled"] = True
+            # ⌘C 主路径走 auto_prompt（剪贴板监听），不要在设全局 hotkey 时关掉它
+            state["auto_prompt_enabled"] = True
+            state["prefer_copy_mode"] = True
+            save_state(state)
             listener = self._ensure_hotkey_listener()
             return {
                 "ok": True,
@@ -215,6 +218,8 @@ class OnboardingApi:
                 - 检查剪贴板：太短或为空 → 临时 pbcopy demo 文字让胶囊有内容显示
                 - 然后 spawn 胶囊（不阻塞主线程）
                 必须在后台线程跑，否则 time.sleep + subprocess 会卡死 webview。
+                pbpaste 在这里**保留**：onboarding 是用户主动操作（一次性），不在自动轮询热路径，
+                即使剪贴板里是图片导致卡几秒，体验上仍可接受。
                 """
                 try:
                     clip = subprocess.run(
@@ -301,18 +306,64 @@ class OnboardingApi:
             "match": match_at > 0,
             "match_age_ms": int((now - match_at) * 1000) if match_at > 0 else -1,
             "last_seen_combo": getattr(self, "_hk_last_seen_combo", ""),
+            "demo_capsule_at": float(getattr(self, "_demo_capsule_at", 0) or 0),
         }
 
+    def check_input_monitor_permission(self) -> dict:
+        from hotkey_perm import input_monitor_status
+
+        st = input_monitor_status()
+        if st.get("granted"):
+            try:
+                self._ensure_hotkey_listener()
+            except Exception:
+                pass
+        return st
+
     def open_input_monitoring_settings(self) -> dict:
-        """打开系统设置 → 隐私 → 输入监控（macOS 13+）。"""
+        from hotkey_perm import open_input_monitoring_settings
+
+        r = open_input_monitoring_settings()
+        if r.get("ok"):
+            return {"ok": True, "message": "请在列表里打开 Skillless 开关，然后点「检测授权」"}
+        return {"ok": False, "error": r.get("error", "无法打开系统设置")}
+
+    def request_input_monitor_access(self) -> dict:
+        from hotkey_perm import request_input_monitor_access
+
+        r = request_input_monitor_access()
+        if r.get("granted"):
+            try:
+                self._ensure_hotkey_listener()
+            except Exception:
+                pass
+        return r
+
+    def enable_copy_mode(self) -> dict:
+        """主路径：开启 ⌘C 复制即弹胶囊。"""
+        from settings_util import DEFAULT_INPUT_HOTKEY, load_state, save_state, set_hotkey
+
+        state = load_state()
+        state["auto_prompt_enabled"] = True
+        state["prefer_copy_mode"] = True
+        state["hotkey_enabled"] = True
+        set_hotkey("input", shortcut=DEFAULT_INPUT_HOTKEY)
+        save_state(state)
+        return {"ok": True, "message": "已开启「复制即弹胶囊」"}
+
+    def enable_hotkey_mode(self) -> dict:
+        """开启全局快捷键监听（备份路径，不影响 ⌘C 主路径）。"""
+        from settings_util import load_state, save_state
+
+        state = load_state()
+        state["hotkey_enabled"] = True
+        # 不要关 prefer_copy_mode，⌘C 主路径要保留
+        save_state(state)
         try:
-            subprocess.run(
-                ["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"],
-                check=False,
-            )
-            return {"ok": True}
-        except Exception as e:
-            return {"ok": False, "error": str(e)[:200]}
+            self._ensure_hotkey_listener()
+        except Exception:
+            pass
+        return {"ok": True}
 
     # ============ 手动试一次 ============
     def copy_demo_to_clipboard(self) -> dict:
@@ -330,12 +381,9 @@ class OnboardingApi:
     # ============ API Key ============
     def get_api_status(self) -> dict:
         try:
-            k = (get_api_key() or "").strip()
-            ok = k.startswith("sk-")
-            masked = ""
-            if ok and len(k) > 10:
-                masked = k[:5] + "…" + k[-4:]
-            return {"ok": True, "has_key": ok, "masked": masked}
+            from settings_util import api_key_status
+
+            return {"ok": True, **api_key_status()}
         except Exception as e:
             return {"ok": False, "error": str(e)[:200]}
 
@@ -357,7 +405,7 @@ class OnboardingApi:
             from bootkit import child_cmd
             subprocess.Popen(
                 child_cmd("dashboard"),
-                cwd=str(SCRIPT_DIR),
+                cwd=str(data_dir()),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
@@ -368,7 +416,7 @@ class OnboardingApi:
 
     def _demo_target_path(self) -> Path:
         """onboarding 期间专用的归档目标 .md，避免污染用户真实 KB。"""
-        p = SCRIPT_DIR / ".history" / "_skillless_demo.md"
+        p = data_dir() / ".history" / "_skillless_demo.md"
         p.parent.mkdir(parents=True, exist_ok=True)
         if not p.exists():
             p.write_text(
@@ -387,20 +435,23 @@ class OnboardingApi:
         """
         try:
             from bootkit import child_cmd
-            cmd = child_cmd("capsule", "--target", str(self._demo_target_path()))
-            log_file = SCRIPT_DIR / ".history" / "_capsule_spawn.log"
+            cmd = child_cmd(
+                "capsule", "--target", str(self._demo_target_path()), "--demo",
+            )
+            log_file = data_dir() / ".history" / "_capsule_spawn.log"
             log_file.parent.mkdir(parents=True, exist_ok=True)
             f = open(log_file, "wb")
             env = os.environ.copy()
             env["PYTHONUNBUFFERED"] = "1"
             proc = subprocess.Popen(
-                cmd, cwd=str(SCRIPT_DIR),
+                cmd, cwd=str(data_dir()),
                 stdout=f, stderr=subprocess.STDOUT,
                 start_new_session=True, env=env,
             )
-            if not wait_for_error:
-                return {"ok": True}
             import time
+            self._demo_capsule_at = time.time()
+            if not wait_for_error:
+                return {"ok": True, "demo": True}
             time.sleep(1.5)
             rc = proc.poll()
             try:
@@ -415,7 +466,7 @@ class OnboardingApi:
                 if not tail:
                     tail = f"（日志为空；cmd={cmd!r}）"
                 return {"ok": False, "error": f"rc={rc}\n{tail[-800:]}"}
-            return {"ok": True}
+            return {"ok": True, "demo": True}
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {str(e)[:300]}"}
 
@@ -426,7 +477,10 @@ class OnboardingApi:
         copy_res = self.copy_demo_to_clipboard()
         if not copy_res.get("ok"):
             return {"ok": False, "error": f"复制失败：{copy_res.get('error', '')}"}
-        return self._spawn_capsule(wait_for_error=True)
+        res = self._spawn_capsule(wait_for_error=True)
+        if res.get("ok"):
+            res["demo"] = True
+        return res
 
     def get_summary(self) -> dict:
         return {
