@@ -24,38 +24,6 @@
     document.body.classList.toggle("theme-dark", theme === "dark");
   }
 
-  // 极简 md → html：只处理 **bold**、- list、段落
-  function mdToHtml(md) {
-    if (!md) return "";
-    let html = escapeHtml(md);
-    html = html.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/`([^`\n]+?)`/g, "<code>$1</code>");
-    const lines = html.split("\n");
-    const out = [];
-    let inList = false;
-    for (const ln of lines) {
-      const m = ln.match(/^[-•]\s+(.+)$/);
-      if (m) {
-        if (!inList) { out.push("<ul>"); inList = true; }
-        out.push("<li>" + m[1] + "</li>");
-      } else {
-        if (inList) { out.push("</ul>"); inList = false; }
-        if (ln.trim()) out.push("<p>" + ln + "</p>");
-      }
-    }
-    if (inList) out.push("</ul>");
-    return out.join("");
-  }
-
-  function fmtRelTime(ts) {
-    if (!ts) return "";
-    const diff = Date.now() / 1000 - ts;
-    if (diff < 60) return "刚刚";
-    if (diff < 3600) return Math.floor(diff / 60) + " 分钟前";
-    if (diff < 86400) return Math.floor(diff / 3600) + " 小时前";
-    return fmtTime(ts);
-  }
-
   function escapeHtml(s) {
     return String(s ?? "")
       .replace(/&/g, "&amp;")
@@ -97,7 +65,6 @@
   /* ====== Panel 容器 ====== */
   root.innerHTML = `
     <section data-panel="home" class="panel"></section>
-    <section data-panel="profile" class="panel" hidden></section>
     <section data-panel="history" class="panel" hidden></section>
     <section data-panel="dict" class="panel" hidden></section>
     <section data-panel="logs" class="panel" hidden></section>
@@ -105,7 +72,6 @@
   `;
   const panels = {
     home: root.querySelector('[data-panel="home"]'),
-    profile: root.querySelector('[data-panel="profile"]'),
     history: root.querySelector('[data-panel="history"]'),
     dict: root.querySelector('[data-panel="dict"]'),
     logs: root.querySelector('[data-panel="logs"]'),
@@ -113,22 +79,18 @@
   };
 
   // 每个 panel 是否已加载过（避免重复 RPC）
-  const loaded = { home: false, profile: false, history: false, dict: false, logs: false, feedback: false };
+  const loaded = { home: false, history: false, dict: false, logs: false, feedback: false };
 
   /* ====== 首页 ====== */
   async function renderHome(force = false) {
     if (!force && loaded.home) return;
     if (!loaded.home) panels.home.innerHTML = `<div class="loading">加载中…</div>`;
-    const [data, dictData] = await Promise.all([
-      api().get_overview(),
-      api().get_dictionary().catch(() => ({ entries: [] })),
-    ]);
+    const data = await api().get_overview();
     applyTheme(data.app_theme || "light");
     const s = data.stats;
     const last = data.last_record || {};
     const def = data.default_target;
     const defDisplay = data.default_target_display || def || "";
-    const dictEntries = (dictData && dictData.entries) || [];
     panels.home.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card"><div class="label">累计字数</div><div class="value">${s.chars.toLocaleString()}</div><div class="sub">字</div></div>
@@ -153,27 +115,6 @@
                  <button class="btn" data-act="new-def">新建…</button>
                </div>`
         }
-      </div>
-
-      <section class="card" id="dict-card">
-        <h3>纠错词典 <span class="hint">写错的写法 → 正确的写法。下次精简时会自动替换。</span></h3>
-        <div class="dict-tip">⚡ 自动条目是 AI 学的，建议偶尔扫一眼有没有学歪</div>
-        <div id="dict-card-body">${renderDictTable(dictEntries)}</div>
-        <div class="dict-add-row">
-          <input type="text" id="dict-wrong-input" placeholder="错的写法（如：陈列然）" autocomplete="off" spellcheck="false" />
-          <input type="text" id="dict-right-input" placeholder="正确的写法（如：陈睿然）" autocomplete="off" spellcheck="false" />
-          <button class="btn btn-primary" id="dict-add-btn">+ 添加</button>
-        </div>
-      </section>
-
-      <div class="card memory-card" id="memory-card">
-        <h3>
-          <span>今日摘要</span>
-          <button class="btn-mini" id="btn-memory-regen" hidden>重新生成</button>
-        </h3>
-        <div class="memory-body" id="memory-body">
-          <div class="memory-loading">读取中…</div>
-        </div>
       </div>
 
       <div class="home-bottom">
@@ -210,191 +151,13 @@
               : `<div class="empty">暂无常用，去归档几次就有了</div>`
           }
         </div>
-
-        <div class="card">
-          <h3>外观 <span class="hint">浅色 / 深色</span></h3>
-          <div class="segment" data-act="theme-seg">
-            <button data-theme="light" class="${(data.app_theme || "light") === "light" ? "active" : ""}">浅色</button>
-            <button data-theme="dark" class="${data.app_theme === "dark" ? "active" : ""}">深色</button>
-          </div>
-        </div>
       </div>
     `;
     loaded.home = true;
-    bindDictHomeHandlers();
-    // 异步加载 memory（不阻塞首页其它内容）
-    loadMemoryCard();
   }
 
-  /* —— 首页内嵌：纠错词典（路线 A 编辑面板）—— */
-  function renderDictSourceChip(src) {
-    if (src === "auto") {
-      return `<span class="dict-src dict-src-auto" title="AI 检测到疑似拼写后自动学习">⚡ 自动</span>`;
-    }
-    return `<span class="dict-src dict-src-manual" title="你手动添加或确认过">👤 手动</span>`;
-  }
-
-  function renderDictTable(entries) {
-    if (!entries || !entries.length) {
-      return `<div class="dict-empty">还没有纠错条目。胶囊里检测到疑似拼写时会自动学习，也可以在下方手动添加。</div>`;
-    }
-    return `
-      <table class="dict-table">
-        <thead>
-          <tr>
-            <th>错</th>
-            <th>对</th>
-            <th class="src">来源</th>
-            <th class="num">命中</th>
-            <th class="act"></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${entries.map((e) => `
-            <tr>
-              <td><code>${escapeHtml(e.wrong || "")}</code></td>
-              <td><code>${escapeHtml(e.right || "")}</code></td>
-              <td class="src">${renderDictSourceChip(e.source || "manual")}</td>
-              <td class="num">${Number(e.hits || 0)}</td>
-              <td class="act">
-                <button class="btn-mini" data-dict-rm="${escapeHtml(e.wrong || "")}">删除</button>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-  }
-
-  async function refreshDictCard() {
-    const body = document.getElementById("dict-card-body");
-    if (!body) return;
-    const d = await api().get_dictionary().catch(() => ({ entries: [] }));
-    body.innerHTML = renderDictTable((d && d.entries) || []);
-  }
-
-  function bindDictHomeHandlers() {
-    const wIn = document.getElementById("dict-wrong-input");
-    const rIn = document.getElementById("dict-right-input");
-    if (wIn) {
-      wIn.onkeydown = (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          if (rIn) rIn.focus();
-        }
-      };
-    }
-    if (rIn) {
-      rIn.onkeydown = (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          const btn = document.getElementById("dict-add-btn");
-          if (btn) btn.click();
-        }
-      };
-    }
-  }
-
-  async function loadMemoryCard(forceRegen = false) {
-    const body = document.getElementById("memory-body");
-    const btn = document.getElementById("btn-memory-regen");
-    if (!body) return;
-
-    if (forceRegen) {
-      body.innerHTML = `<div class="memory-loading"><span class="dot-spin"></span>AI 总结中… 通常 5–15 秒</div>`;
-      btn.hidden = true;
-      const r = await api().regen_today_memory();
-      if (r.ok) {
-        renderMemory(r);
-      } else {
-        body.innerHTML = `<div class="memory-empty">${escapeHtml(r.error || "生成失败")}</div>`;
-        btn.hidden = false;
-        btn.textContent = "重试";
-      }
-      return;
-    }
-
-    const stat = await api().memory_stats();
-    if (stat.cached) {
-      renderMemory(stat);
-    } else if (stat.today_records === 0) {
-      body.innerHTML = `<div class="memory-empty">今天还没复制任何文字，复制几条之后再来。</div>`;
-      btn.hidden = true;
-    } else {
-      body.innerHTML = `
-        <div class="memory-empty">
-          今天已记录 <strong>${stat.today_records}</strong> 条复制内容
-          <button class="btn btn-primary memory-gen" data-act="memory-gen">生成今日 memory</button>
-        </div>`;
-      btn.hidden = true;
-    }
-  }
-
-  function renderMemory(r) {
-    const body = document.getElementById("memory-body");
-    const btn = document.getElementById("btn-memory-regen");
-    body.innerHTML = `
-      <div class="memory-content">${mdToHtml(r.content || "")}</div>
-      <div class="memory-meta">基于 ${r.source_count} 条 · ${fmtRelTime(r.generated_ts)}生成</div>
-    `;
-    btn.hidden = false;
-    btn.textContent = "重新生成";
-  }
-
-  // 事件委托：home 点击
+  // 事件委托：home 点击（保留默认文档相关 act）
   panels.home.addEventListener("click", async (e) => {
-    // 纠错词典：添加
-    if (e.target.closest("#dict-add-btn")) {
-      const wIn = document.getElementById("dict-wrong-input");
-      const rIn = document.getElementById("dict-right-input");
-      const w = (wIn && wIn.value || "").trim();
-      const r = (rIn && rIn.value || "").trim();
-      if (!w || !r) { showToast("错/对 都要填"); return; }
-      if (w === r) { showToast("错和对不能一样"); return; }
-      const res = await api().add_dictionary_entry(w, r);
-      if (res && res.ok) {
-        if (wIn) wIn.value = "";
-        if (rIn) rIn.value = "";
-        showToast("已添加：" + w + " → " + r);
-        await refreshDictCard();
-      } else {
-        showToast("添加失败：" + (res && res.error || ""));
-      }
-      return;
-    }
-    // 纠错词典：删除
-    const rmBtn = e.target.closest("[data-dict-rm]");
-    if (rmBtn) {
-      const w = rmBtn.dataset.dictRm;
-      if (!w) return;
-      const res = await api().delete_dictionary_entry(w);
-      if (res && res.ok) {
-        showToast("已删除：" + w);
-        await refreshDictCard();
-      } else {
-        showToast("删除失败：" + (res && res.error || ""));
-      }
-      return;
-    }
-    // memory 生成 / 重新生成
-    if (e.target.closest("#btn-memory-regen") || e.target.closest("[data-act=memory-gen]")) {
-      loadMemoryCard(true);
-      return;
-    }
-    // 主题 segment
-    const seg = e.target.closest("[data-act=theme-seg] [data-theme]");
-    if (seg) {
-      const r = await api().update_app_theme(seg.dataset.theme);
-      if (r && r.ok) {
-        seg.parentElement.querySelectorAll("[data-theme]").forEach((b) => {
-          b.classList.toggle("active", b.dataset.theme === r.theme);
-        });
-        applyTheme(r.theme);
-        showToast("主题：" + (r.theme === "dark" ? "深色" : "浅色"));
-      }
-      return;
-    }
-
     const t = e.target.closest("[data-act]");
     if (!t) return;
     const act = t.dataset.act;
@@ -441,7 +204,7 @@
     if (!force && loaded.history) return;
     if (!historyDom) {
       panels.history.innerHTML = `
-        <h2 class="page-title">历史</h2>
+        <h2 class="page-title">历史记录</h2>
         <p class="page-lead">你复制过的文字和图片，按时间排列。</p>
         <div class="filter-bar" id="hist-filter"></div>
         <div class="history-list" id="hist-list"><div class="loading">加载中…</div></div>
@@ -637,104 +400,6 @@
       </div>`;
   }
 
-  /* ====== 档案（SOUL / USER / TOOLS）====== */
-  const PROFILE_CARDS = [
-    {
-      kind: "soul",
-      title: "SOUL.md",
-      subtitle: "Skillless 是谁 · 视角补充段的人格 / 口吻 / 价值观",
-      hint: "只对「📚 你的视角补充」段生效；精简正文不受影响。",
-    },
-    {
-      kind: "user",
-      title: "USER.md",
-      subtitle: "关于你 · AI 在写视角补充时的人物画像",
-      hint: "AI 用这段决定该用什么角度看你的新输入；不会拿来模仿你的文风写精简正文。",
-    },
-    {
-      kind: "tools",
-      title: "TOOLS.md",
-      subtitle: "项目 / 术语 / 关键人物 · 视角补充段的私密备忘录",
-      hint: "让视角补充能直说「张三那个项目」；精简正文不解释术语。",
-    },
-  ];
-
-  async function renderProfile(force = false) {
-    if (!force && loaded.profile) return;
-    if (!loaded.profile) panels.profile.innerHTML = `<div class="loading">加载中…</div>`;
-    const data = await api().get_profile().catch(() => ({ soul: "", user: "", tools: "" }));
-    panels.profile.innerHTML = `
-      <h2 class="page-title">档案 <span class="hint" style="font-size: 12px; margin-left: 8px;">三层人格记忆 · 告别冷启动</span></h2>
-      <p class="page-lead">
-        Skillless 通过 <strong>SOUL / USER / TOOLS</strong> 三个 markdown 文件认识你。
-        <strong>每次精简时 AI 都会读它们做「视角补充」</strong>——改完点保存即生效，不需要重启。
-        <br/>这三份档案<strong>只服务于「📚 你的视角补充」段</strong>；精简正文还是按基础规则走，不会被影响。
-      </p>
-
-      <div class="card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-        <div style="font-size: 13px; color: #475569; line-height: 1.6;">
-          想直接编辑文件、加图、做版本对比？打开 Finder。
-        </div>
-        <button class="btn" data-act="open-profile-dir">📂 在 Finder 中打开</button>
-      </div>
-
-      <div class="profile-grid">
-        ${PROFILE_CARDS.map((c) => `
-          <section class="card profile-card" data-card="${c.kind}">
-            <h3>
-              <span>${escapeHtml(c.title)} <span class="hint" style="margin-left: 6px;">${escapeHtml(c.subtitle)}</span></span>
-              <button class="btn btn-primary profile-save-btn" data-kind="${c.kind}">保存</button>
-            </h3>
-            <div class="profile-hint">${escapeHtml(c.hint)}</div>
-            <textarea class="profile-textarea" data-kind="${c.kind}" spellcheck="false">${escapeHtml(data[c.kind] || "")}</textarea>
-          </section>
-        `).join("")}
-      </div>
-    `;
-
-    // 绑定保存按钮：每张卡独立保存
-    panels.profile.querySelectorAll(".profile-save-btn").forEach((btn) => {
-      btn.onclick = async () => {
-        const kind = btn.dataset.kind;
-        const ta = panels.profile.querySelector(`.profile-textarea[data-kind="${kind}"]`);
-        if (!ta) return;
-        const content = ta.value || "";
-        btn.disabled = true;
-        const oldText = btn.textContent;
-        btn.textContent = "保存中…";
-        try {
-          const r = await api().save_profile_part(kind, content);
-          if (r && r.ok) {
-            showToast(`已保存 ${kind.toUpperCase()}.md · ${content.length} 字符`);
-          } else {
-            showToast(`保存失败：${(r && r.error) || "未知错误"}`);
-          }
-        } catch (e) {
-          showToast("保存失败：" + (e && e.message || e));
-        } finally {
-          btn.disabled = false;
-          btn.textContent = oldText;
-        }
-      };
-    });
-
-    // 绑定 Finder 入口
-    const openBtn = panels.profile.querySelector('[data-act="open-profile-dir"]');
-    if (openBtn) {
-      openBtn.onclick = async () => {
-        try {
-          const r = await api().open_profile_dir();
-          if (r && r.ok) showToast("已打开 profile 目录");
-          else showToast("打开失败：" + ((r && r.error) || ""));
-        } catch (e) {
-          showToast("打开失败：" + (e && e.message || e));
-        }
-      };
-    }
-
-    loaded.profile = true;
-  }
-
   /* ====== 日志 ====== */
   let activeLogName = "clip_watcher.log";
 
@@ -906,7 +571,7 @@
   }
 
   /* ====== Tab 切换：display 切换，不重建 DOM ====== */
-  const renderers = { home: renderHome, profile: renderProfile, history: renderHistory, dict: renderDict, logs: renderLogs, feedback: renderFeedback };
+  const renderers = { home: renderHome, history: renderHistory, dict: renderDict, logs: renderLogs, feedback: renderFeedback };
   let currentTab = "home";
 
   function switchTab(tab) {
