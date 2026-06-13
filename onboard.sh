@@ -41,5 +41,7 @@ sleep 0.5
 
 # 4) 独立进程直接拉起引导窗口（强制弹，无视 state）
 echo "[onboard] 启动 Skillless 上手窗口…"
+echo "         ⚠️  本脚本只开「新手引导窗」，不会出现菜单栏 📥 图标"
+echo "         引导走完后请用：$DIR/open_app.sh  或  $DIR/menubar.sh start"
 echo "         （关掉窗口前，这个终端会一直停在这里）"
 exec "$PY" "$DIR/onboarding_window.py" --force

@@ -36,8 +36,11 @@ DATAS = [
     ("quick",      "quick"),
     ("prompts",    "prompts"),
     ("assets",     "assets"),
+    # 三层档案模板（首次启动从这里复制到 ~/Library/Application Support/Skillless/profile/）
+    ("profile_templates", "profile_templates"),
     # 配置（用户可后续覆盖）
     ("config.yaml", "."),
+] + ([("platform.key.enc", ".")] if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(SPEC)), "platform.key.enc")) else []) + ([("feedback_webhook.enc", ".")] if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(SPEC)), "feedback_webhook.enc")) else []) + [
     # 子脚本（被主进程 subprocess.Popen 拉起）
     ("onboarding_window.py", "."),
     ("onboarding.py",        "."),
@@ -49,8 +52,17 @@ DATAS = [
     # 共享 util（可能被子脚本 import）
     ("settings_util.py",     "."),
     ("hotkey_util.py",       "."),
+    ("hotkey_perm.py",       "."),
     ("history.py",           "."),
     ("telemetry.py",         "."),
+    ("app_paths.py",         "."),
+    ("platform_crypto.py",   "."),
+    ("bootkit.py",           "."),
+    ("dictionary_util.py",   "."),
+    ("profile_util.py",      "."),
+    ("feedback_collector.py", "."),
+    ("clip_history_util.py", "."),
+    ("kb_index.py",          "."),
     # 入口脚本（被 dispatcher 拉起 / 也供主程序自己 reload）
     ("archiver_menubar.py",  "."),
 ]
@@ -84,6 +96,15 @@ HIDDEN += [
     "hotkey_util",
     "history",
     "telemetry",
+    "app_paths",
+    "platform_crypto",
+    "bootkit",
+    "icns_writer",
+    "dictionary_util",
+    "profile_util",
+    "feedback_collector",
+    "clip_history_util",
+    "kb_index",
 ]
 
 # pywebview 自带的 JS bridge 资源
@@ -157,8 +178,9 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "Skillless",
         "CFBundleDisplayName": "Skillless",
-        "CFBundleShortVersionString": "0.3.0",
-        "CFBundleVersion": "0.3.0",
+        "CFBundleShortVersionString": "0.4.15",
+        "CFBundleVersion": "0.4.15",
+        "CFBundleIconFile": "Skillless",
         # 后台 App：不在 Dock 显示图标
         "LSUIElement": True,
         "NSHighResolutionCapable": True,

@@ -55,7 +55,7 @@ behavior:
   notify: true
   write_archive_log: true
   auto_prompt_min_length: 100
-  auto_prompt_max_length: 2500
+  auto_prompt_max_length: 20000
   auto_mute_after_skips: 2
   ai_preview_before_write: true
   skip_code_like: true

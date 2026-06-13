@@ -31,16 +31,6 @@ case "$ACTION" in
     # 极简 ✅❌ 浮层（绑给「输入快捷键」）
     exec "$PY" "$DIR/quick_archive.py" "$@"
     ;;
-  translate)
-    # AI 转译浮层：mode 可选 polish / i18n / structure，缺省 polish
-    MODE="${1:-polish}"
-    if [ "$MODE" = "polish" ] || [ "$MODE" = "i18n" ] || [ "$MODE" = "structure" ]; then
-      shift
-    else
-      MODE="polish"
-    fi
-    exec "$PY" "$DIR/quick_archive.py" --mode "$MODE" "$@"
-    ;;
   ask)
     exec "$PY" "$DIR/ask.py" "$@"
     ;;
