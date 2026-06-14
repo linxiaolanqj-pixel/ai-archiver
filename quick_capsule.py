@@ -127,6 +127,20 @@ CAPSULE_INPUT_MAX = 4000
 CAPSULE_MAX_TOKENS = 600
 CAPSULE_STREAM_TIMEOUT = 60
 
+
+def _capsule_max_tokens(input_len: int, *, fast: bool) -> int:
+    """v0.4.19：按输入长度动态预算 max_tokens，避免 325 字输入也拉满 600 tok。
+
+    中文粗算 1 字 ≈ 0.6 token；视角补充段另留 ~180 tok 预算。
+    """
+    if fast:
+        return FAST_MAX_TOKENS
+    _, _, body_total = _capsule_size_tier(input_len)
+    body_tok = int(body_total * 0.65) + 40
+    aside_tok = 180
+    budget = body_tok + aside_tok
+    return min(CAPSULE_MAX_TOKENS, max(220, budget))
+
 # ==== v0.4.9 自适应延迟模式 ====
 # 短输入（≤ 200 字）走极速模式：跳过 KB / profile / 视角补充指令，max_tokens 200，
 # 目标 ≤ 3s 出结果。长输入走完整模式（KB + 视角补充）。
@@ -859,6 +873,9 @@ class CapsuleApi:
         self.timings: dict = {}
         # v0.4.10：「📚 笔记参考」开关，默认 OFF（state.json 持久化跨胶囊会话）
         self.kb_enabled: bool = get_capsule_kb_enabled()
+        # v0.4.19：是否走「深度精简」（KB + 视角补充）。首次打开默认 False（极速）；
+        # 只有用户点 ↻ 重算 chip 时才 True。
+        self._refine_deep: bool = False
 
     def get_payload(self) -> dict:
         if self.mode == "image":
@@ -1278,8 +1295,12 @@ class CapsuleApi:
         self._stream_thread.start()
         return {"ok": True, "mode": m, "demo": True}
 
-    def start_refine(self, mode: str | None = None) -> dict:
-        """启动流式 LLM；前端调 get_progress 轮询读 chunk。"""
+    def start_refine(self, mode: str | None = None, deep: bool = False) -> dict:
+        """启动流式 LLM；前端调 get_progress 轮询读 chunk。
+
+        deep=False（默认）：首次打开走极速，目标 ≤ 3s。
+        deep=True：用户主动点 ↻ 重算；kb_enabled 时走完整 KB + 视角补充。
+        """
         # v0.4.15：图片模式不调 AI，直接 short-circuit
         if self.mode == "image":
             return {"ok": False, "mode": "image", "error": "image mode skips refine"}
@@ -1287,7 +1308,9 @@ class CapsuleApi:
         if m not in MODE_LABELS:
             m = "polish"
         self.mode = m
-        _track("click", "refine", scope="capsule", props={"mode": m, "len": len(self.text)})
+        self._refine_deep = bool(deep)
+        _track("click", "refine", scope="capsule",
+               props={"mode": m, "len": len(self.text), "deep": self._refine_deep})
 
         if self.demo:
             return self._start_demo_refine(m)
@@ -1330,18 +1353,21 @@ class CapsuleApi:
                 except Exception:
                     self.dup_info = None
 
-                # v0.4.10：是否走完整（KB + 视角补充）由两件事决定：
-                # 1. 用户是否在胶囊里显式开了「📚 笔记参考」开关（self.kb_enabled，主导）
-                # 2. 输入是否够长（≤ 200 字时 KB 帮助极小，强制走极速避免冗余 token）
-                # `_compressed_text` 是 compress_meeting_transcript 处理后的净文本
+                # v0.4.19 模式判定（重写 v0.4.10 逻辑）：
+                # · 首次打开（deep=False）→ 一律极速，不管 kb 开关是否 ON
+                # · 用户点 ↻ 重算（deep=True）且 kb ON → 完整模式（KB + 视角补充）
+                # · deep=True 但 kb OFF → 仍是极速（用户明确要更快）
+                # · 极短输入（≤ FAST_MODE_THRESHOLD）即使 deep+kb 也走极速（视角补充帮助极小）
                 eff_text = self._compressed_text or self.text.strip()
                 kb_on = bool(getattr(self, "kb_enabled", False))
+                deep = bool(getattr(self, "_refine_deep", False))
                 short_input = len(eff_text) <= FAST_MODE_THRESHOLD
-                fast_mode = (not kb_on) or short_input
+                use_full = deep and kb_on and not short_input
+                fast_mode = not use_full
                 if fast_mode:
                     # 极速模式：aside=False → 不教模型两段式，并硬禁止 `---` 与「视角补充」段
                     sys_prompt = base_prompt + _build_prompt_suffix(len(eff_text), aside=False)
-                    max_tok = FAST_MAX_TOKENS
+                    max_tok = _capsule_max_tokens(len(eff_text), fast=True)
                 else:
                     # v0.4.14：把本次（压缩后的）输入当 BM25 query 检索 KB top-3 段，
                     # 替代「取尾部 2400 字」。命中精度大幅高于尾部，检索结果放到 prompt 末尾
@@ -1354,11 +1380,13 @@ class CapsuleApi:
                         dup=self.dup_info,
                         input_len=len(eff_text),
                     )
-                    max_tok = CAPSULE_MAX_TOKENS
+                    max_tok = _capsule_max_tokens(len(eff_text), fast=False)
                 self.timings["mode"] = "fast" if fast_mode else "full"
                 self.timings["kb_enabled"] = kb_on
+                self.timings["refine_deep"] = deep
                 self.timings["build_ms"] = int((_time.monotonic() - t0) * 1000)
                 self.timings["prompt_chars"] = len(sys_prompt)
+                self.timings["max_tokens"] = max_tok
                 # __init__ 里已经跑过 compress_meeting_transcript：
                 # - 会议转录 → _compressed_text 是压缩后的纯文本（通常比原文短 60%+）
                 # - 普通长文 → _compressed_text 就是 self.text.strip()，未做任何改动

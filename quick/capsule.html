@@ -850,7 +850,7 @@
       <!-- 状态 1: Thinking -->
       <div class="thinking" id="thinking">
         <span class="spin"></span>
-        <span id="thinking-text">thinking 中</span>
+        <span id="thinking-text">生成中</span>
       </div>
 
       <!-- 状态 2: Result -->
@@ -1483,8 +1483,12 @@
         if (thinkingWatchdog) { clearInterval(thinkingWatchdog); thinkingWatchdog = null; }
       }
 
-      // 按原文长度粗估首字等待时间（无真实 API ETA 时的体验兜底）
-      function estimateThinkingSeconds(textLen, modeId) {
+      // 按原文长度 + 是否深度模式粗估等待时间
+      function estimateThinkingSeconds(textLen, modeId, deep) {
+        if (!deep) {
+          // 首次打开一律极速：prompt ~1.3k 字 + max_tokens 200
+          return Math.max(2, Math.min(8, Math.round(2 + textLen * 0.003)));
+        }
         const base = { polish: 5, structure: 9, i18n: 7, raw: 1 }[modeId] || 5;
         const perChar = modeId === "structure" ? 0.004 : 0.002;
         const est = Math.round(base + textLen * perChar);
@@ -1492,13 +1496,13 @@
       }
 
       function formatThinkingRemain(remainSec) {
-        if (remainSec <= 0) return "thinking 中 · 即将完成";
-        return `thinking 中 · 约剩 ${remainSec}s`;
+        if (remainSec <= 0) return "生成中 · 即将完成";
+        return `生成中 · 约剩 ${remainSec}s`;
       }
 
-      function startThinkingTicker(modeId) {
+      function startThinkingTicker(modeId, deep) {
         const t0 = Date.now();
-        const estimateSec = estimateThinkingSeconds((state.text || "").length, modeId);
+        const estimateSec = estimateThinkingSeconds((state.text || "").length, modeId, deep);
         const tick = () => {
           const elapsed = (Date.now() - t0) / 1000;
           let remain = Math.ceil(estimateSec - elapsed);
@@ -1524,16 +1528,18 @@
         return !!p.done;
       }
 
-      async function runRefine(mode) {
+      async function runRefine(mode, deep) {
         stopPolling();
         // v0.4.16：开新一轮就把 toggle 后浮出的「↻ 重算」chip 隐掉，避免和 thinking/result 重叠
         hideRecomputeChip();
         const m = mode || state.mode;
+        const isDeep = !!deep;
+        state._refineDeep = isDeep;
         show("thinking");
         $("thinking-text").textContent = formatThinkingRemain(
-          estimateThinkingSeconds((state.text || "").length, m)
+          estimateThinkingSeconds((state.text || "").length, m, isDeep)
         );
-        startThinkingTicker(m);
+        startThinkingTicker(m, isDeep);
         const t0 = Date.now();
 
         thinkingWatchdog = setInterval(() => {
@@ -1546,7 +1552,7 @@
         }, 1000);
 
         try {
-          await api().start_refine(m);
+          await api().start_refine(m, isDeep);
         } catch (e) {
           stopPolling();
           show("result");
@@ -1590,6 +1596,11 @@
             stopPolling();
             state.refined = p.ok === false ? "" : (p.text || "");
             requestAnimationFrame(() => requestAnimationFrame(autofitResult));
+            // v0.4.19：首次极速完成后，若笔记 ON 且还没深度重算过，提示用户可点 chip 拿视角补充
+            const tm = p.timings || state.timings || {};
+            if (p.ok !== false && state.kb_enabled && !state._refineDeep && tm.mode === "fast") {
+              showRecomputeChip(true);
+            }
           }
         }, 50);
       }
@@ -1667,7 +1678,7 @@
       }
       async function onRecomputeClick() {
         hideRecomputeChip();
-        if (!state.apiKeyMode && !state.demo) await runRefine();
+        if (!state.apiKeyMode && !state.demo) await runRefine(state.mode, true);
       }
       async function onKbToggle() {
         const btn = $("btn-kb");
@@ -2011,7 +2022,7 @@
           // 只保留用户横向宽度偏好，高度交给 autofit
           SIZE.result = [p.saved_size[0], 180];
         }
-        $("thinking-text").textContent = "thinking 中";
+        $("thinking-text").textContent = "生成中";
         if (state.mode === "raw") {
           state.refined = state.text;
           setResult(state.text, true, "原文");
