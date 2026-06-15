@@ -132,11 +132,13 @@ def _capsule_max_tokens(input_len: int, *, fast: bool) -> int:
     """v0.4.19：按输入长度动态预算 max_tokens，避免 325 字输入也拉满 600 tok。
 
     中文粗算 1 字 ≈ 0.6 token；视角补充段另留 ~180 tok 预算。
+    v0.4.20：极速模式也按 tier 走，从固定 200 降到 ~140（80-92 字输出 + 缓冲）
     """
-    if fast:
-        return FAST_MAX_TOKENS
     _, _, body_total = _capsule_size_tier(input_len)
     body_tok = int(body_total * 0.65) + 40
+    if fast:
+        # 极速：只输出主精简，不含视角补充；按 tier 给最小够用预算
+        return min(FAST_MAX_TOKENS, max(120, body_tok))
     aside_tok = 180
     budget = body_tok + aside_tok
     return min(CAPSULE_MAX_TOKENS, max(220, budget))
@@ -1503,6 +1505,32 @@ class CapsuleApi:
                     pass
             finally:
                 self.timings["total_ms"] = int((_time.monotonic() - t0) * 1000)
+                # v0.4.20：落盘 timings 到 capsule_perf.jsonl，便于事后定量定位慢点
+                # （之前 5 轮都靠工人脑补，没有真实数据非常被动）
+                try:
+                    from datetime import datetime
+                    import json as _json
+                    perf_row = {
+                        "ts": datetime.now().isoformat(timespec="seconds"),
+                        "mode": self.timings.get("mode"),
+                        "deep": self.timings.get("refine_deep"),
+                        "kb": self.timings.get("kb_enabled"),
+                        "input_chars": self.timings.get("input_chars"),
+                        "prompt_chars": self.timings.get("prompt_chars"),
+                        "max_tokens": self.timings.get("max_tokens"),
+                        "build_ms": self.timings.get("build_ms"),
+                        "first_ms": self.timings.get("first_ms"),
+                        "total_ms": self.timings.get("total_ms"),
+                        "completion_tokens": self.timings.get("completion_tokens"),
+                        "cache_hit_tokens": self.timings.get("cache_hit_tokens"),
+                        "cache_total_tokens": self.timings.get("cache_total_tokens"),
+                        "target": Path(self.target).name if self.target else "",
+                    }
+                    (data_dir() / "capsule_perf.jsonl").open("a", encoding="utf-8").write(
+                        _json.dumps(perf_row, ensure_ascii=False) + "\n"
+                    )
+                except Exception:
+                    pass
                 with self._stream_lock:
                     if not self._stream.get("done"):
                         self._stream["done"] = True
