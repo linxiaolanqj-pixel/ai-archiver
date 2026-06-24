@@ -178,8 +178,8 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "Skillless",
         "CFBundleDisplayName": "Skillless",
-        "CFBundleShortVersionString": "0.4.20",
-        "CFBundleVersion": "0.4.20",
+        "CFBundleShortVersionString": "0.4.21",
+        "CFBundleVersion": "0.4.21",
         "CFBundleIconFile": "Skillless",
         # 后台 App：不在 Dock 显示图标
         "LSUIElement": True,

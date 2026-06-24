@@ -237,7 +237,7 @@ class ArchiverApp(rumps.App):
             try:
                 rumps.notification(
                     "Skillless 已启动",
-                    "复制文字（≥100 字）即弹胶囊",
+                    "双击 ⌘C 召唤胶囊（≥100 字）",
                     f"也可按 {DEFAULT_INPUT_HOTKEY}；菜单点 📥 可切换",
                 )
             except Exception:

@@ -138,7 +138,7 @@ def _capsule_max_tokens(input_len: int, *, fast: bool) -> int:
     body_tok = int(body_total * 0.65) + 40
     if fast:
         # 极速：只输出主精简，不含视角补充；按 tier 给最小够用预算
-        return min(FAST_MAX_TOKENS, max(120, body_tok))
+        return min(FAST_MAX_TOKENS, max(90, body_tok))
     aside_tok = 180
     budget = body_tok + aside_tok
     return min(CAPSULE_MAX_TOKENS, max(220, budget))
@@ -148,7 +148,7 @@ def _capsule_max_tokens(input_len: int, *, fast: bool) -> int:
 # 目标 ≤ 3s 出结果。长输入走完整模式（KB + 视角补充）。
 # 阈值定在 200 是因为：≤ 200 字的输入用户通常是「快速记一句话」，本来也不需要视角补充。
 FAST_MODE_THRESHOLD = 200
-FAST_MAX_TOKENS = 200
+FAST_MAX_TOKENS = 150
 # ==== 字数纪律 ====
 # 产品原则：
 # - 精简正文：尺寸跟随原文 + AI 自判断，不做硬上限（防御性最大 1500 字，纯防 AI 失控）
@@ -158,6 +158,15 @@ CAPSULE_BODY_MAX = 1500   # 防御性上限，正常输出远低于此
 CAPSULE_ASIDE_MAX = 250
 CAPSULE_BODY_HARD = 1800
 CAPSULE_ASIDE_HARD = 290
+def _build_fast_prompt_suffix(input_len: int) -> str:
+    """v0.4.21：极速模式专用超短后缀（~80 字），替代完整 _build_prompt_suffix(aside=False) 的 ~900 字。"""
+    _, _, body_total = _capsule_size_tier(input_len)
+    return (
+        f"\n\n【极速·改写者】只精简改写原文，不答题、不新增信息。"
+        f"总≤{body_total}字。禁 --- / 视角补充 / 步骤列表。直接 Markdown，无开场白。\n"
+    )
+
+
 def _build_prompt_suffix(input_len: int = 500, *, aside: bool = True) -> str:
     """v0.4.12：动态生成胶囊精简 prompt 后缀。
 
@@ -1367,9 +1376,9 @@ class CapsuleApi:
                 use_full = deep and kb_on and not short_input
                 fast_mode = not use_full
                 if fast_mode:
-                    # 极速模式：aside=False → 不教模型两段式，并硬禁止 `---` 与「视角补充」段
-                    sys_prompt = base_prompt + _build_prompt_suffix(len(eff_text), aside=False)
+                    sys_prompt = base_prompt + _build_fast_prompt_suffix(len(eff_text))
                     max_tok = _capsule_max_tokens(len(eff_text), fast=True)
+                    stream_temp = 0.25
                 else:
                     # v0.4.14：把本次（压缩后的）输入当 BM25 query 检索 KB top-3 段，
                     # 替代「取尾部 2400 字」。命中精度大幅高于尾部，检索结果放到 prompt 末尾
@@ -1383,6 +1392,7 @@ class CapsuleApi:
                         input_len=len(eff_text),
                     )
                     max_tok = _capsule_max_tokens(len(eff_text), fast=False)
+                    stream_temp = 0.4
                 self.timings["mode"] = "fast" if fast_mode else "full"
                 self.timings["kb_enabled"] = kb_on
                 self.timings["refine_deep"] = deep
@@ -1417,6 +1427,7 @@ class CapsuleApi:
                     user_text,
                     timeout=CAPSULE_STREAM_TIMEOUT,
                     max_tokens=max_tok,
+                    temperature=stream_temp,
                 ):
                     if kind == "chunk" and not got_first:
                         self.timings["first_ms"] = int((_time.monotonic() - t0) * 1000)

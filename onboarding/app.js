@@ -1,15 +1,14 @@
 /**
- * Skillless · 上手引导（7 步）
- *   1. Welcome —— 三大核心能力总览
- *   2. Refine  —— ① 选中就精简：动画演示
- *   3. How     —— ② 精简后归档：动画演示
- *   4. Hotkey  —— ⌘C 触发 + 亲自试一次
- *   5. API     —— AI 已内置（或可选自备 Key）
- *   6. Pick    —— 选默认 .md = 知识库
- *   7. KB      —— 知识库越用越懂：三列对比演示
+ * Skillless · 上手引导（6 步）
+ *   1. Welcome —— 三大能力
+ *   2. Refine  —— ① 选中就精简
+ *   3. How     —— ② 精简后归档
+ *   4. Hotkey  —— 双击 ⌘C 召唤胶囊
+ *   5. Pick    —— 选默认 .md
+ *   6. KB      —— ③ 知识库视角补充
  */
 (function () {
-  const STEPS = ["welcome", "refine", "how", "hotkey", "api", "pick", "kb"];
+  const STEPS = ["welcome", "refine", "how", "hotkey", "pick", "kb"];
 
   let stepIndex = 0;
   let picked = null;
@@ -80,9 +79,10 @@
         </div>
         <h2 class="title">选中文字，立刻变清晰</h2>
         <p class="lead">
-          Skillless 做三件事：<strong>① 选中就精简</strong> · 去口水、结构化；<br />
-          <strong>② 一键归档</strong> · 追加到你指定的 .md；<br />
-          <strong>③ 越用越懂你</strong> · AI 读你的笔记，下次精简会顺手补遗漏、提示重复。
+          <strong>① 双击 ⌘C 精简</strong> · 去口水、结构化；<br />
+          <strong>② 一键归档</strong> · 写进你的 .md；<br />
+          <strong>③ 笔记视角补充</strong> · 读知识库，补关联、标重复。<br />
+          <span class="why-tail">AI 已内置，<strong>不用配 API Key</strong>。</span>
         </p>
       </div>`;
     clearActions();
@@ -95,7 +95,7 @@
   function renderRefine() {
     stage.innerHTML = `
       <h2 class="title">① 选中就精简</h2>
-      <p class="lead">选中一段口语化文字 → 按 <kbd>⌘</kbd><kbd>C</kbd> 复制 → 胶囊弹出 → AI 去口水化 + 结构化。先看一遍真实效果。</p>
+      <p class="lead">选中文字 → <strong>双击 ⌘C</strong>（1.5 秒内连按两次复制）→ 约 3 秒出精简结果。</p>
 
       <div class="demo-stage refine-stage run" id="refine-stage">
         <div class="demo-phase">
@@ -110,7 +110,7 @@
         <div class="demo-capsule">
           <div class="cap-thinking">
             <span class="cap-spin"></span>
-            <span>AI 正在去口水化 + 结构化…</span>
+            <span>生成中…</span>
           </div>
           <div class="cap-result">
             <div class="cap-head">
@@ -224,7 +224,7 @@
         <div class="capa-card capa-card-primary">
           <span class="capa-ico">✨</span>
           <div class="capa-title">① 选中就精简</div>
-          <div class="capa-desc">选中文字按 ⌘C 复制，胶囊立刻去口水、结构化</div>
+          <div class="capa-desc">双击 ⌘C 召唤胶囊，约 3 秒出精简</div>
         </div>
         <div class="capa-card">
           <span class="capa-ico">📥</span>
@@ -233,8 +233,8 @@
         </div>
         <div class="capa-card">
           <span class="capa-ico">📚</span>
-          <div class="capa-title">③ 越用越懂你</div>
-          <div class="capa-desc">AI 读过你的笔记，下次会顺手提示重复、补遗漏</div>
+          <div class="capa-title">③ 笔记视角补充</div>
+          <div class="capa-desc">打开「📚 笔记」后重算，AI 读知识库补关联</div>
         </div>
       </div>`;
 
@@ -247,7 +247,7 @@
 
     clearActions();
     actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
-    actionsEl.appendChild(btn("继续 → 设置快捷键", "primary", goNext));
+    actionsEl.appendChild(btn("继续 → 双击 ⌘C", "primary", goNext));
   }
 
   /* ============================================================
@@ -269,8 +269,7 @@
     setRow(rowMatch, "ok", "③ 命中你的组合：演示胶囊已弹起 ✓");
     if (hint) {
       hint.innerHTML =
-        `演示通过 ✓ 已用<strong>预制精简结果</strong>弹胶囊（无需 API Key）。` +
-        `点「继续」去配 Key，或先跳过也行。`;
+        `演示通过 ✓ 已弹出<strong>预制精简胶囊</strong>。正式用时：选中文字 → 双击 ⌘C。`;
       hint.className = "hk-diag-hint ok";
     }
     const box = document.getElementById("hk-diag");
@@ -396,54 +395,49 @@
     if (permPollTimer) { clearInterval(permPollTimer); permPollTimer = null; }
 
     stage.innerHTML = `
-      <h2 class="title">用 ⌘C 弹胶囊</h2>
-      <p class="lead">选中文字后按 <strong>⌘C</strong> 复制，Skillless 监听到剪贴板更新，自动弹出精简胶囊。</p>
+      <h2 class="title">双击 ⌘C 召唤胶囊</h2>
+      <p class="lead">
+        第一次 <kbd>⌘</kbd><kbd>C</kbd> 正常复制；<strong>1.5 秒内再按一次</strong>，弹出精简胶囊。
+        单次复制不会打扰你。
+      </p>
 
       <div class="copy-primary-card">
         <h3>用法</h3>
         <ol class="copy-steps">
           <li>在任意 App 里<strong>选中一段文字</strong>（≥100 字）</li>
-          <li>按 <kbd>⌘</kbd><kbd>C</kbd> 复制</li>
-          <li>鼠标旁弹出精简胶囊</li>
+          <li><kbd>⌘</kbd><kbd>C</kbd> 复制（第一次）</li>
+          <li>1.5 秒内再 <kbd>⌘</kbd><kbd>C</kbd> 一次 → 胶囊弹出</li>
         </ol>
-      </div>
-
-      <div class="perm-wizard" id="perm-wizard">
-        <h3>先开「输入监控」权限</h3>
-        <ol class="perm-steps">
-          <li>点「一键开启权限」→ 自动跳转系统设置</li>
-          <li>在列表里<strong>打开 Skillless 开关</strong></li>
-          <li>看到绿灯后，去别的 App 按 ⌘C 试试</li>
-        </ol>
-        <div class="perm-actions">
-          <button type="button" class="btn primary" id="perm-open">一键开启权限</button>
-          <button type="button" class="btn ghost" id="perm-check">检测授权</button>
-        </div>
-        <div class="perm-status wait" id="perm-status">检测中…</div>
-      </div>
-
-      <div class="hk-card">
-        <div class="hk-presets">
-          <button type="button" class="hk-preset active" data-hk="${EASY_HOTKEY}">
-            默认 · ⌘C
-          </button>
-        </div>
-        <div class="hk-status ok" id="hk-status">快捷键 ⌘C 已设置</div>
       </div>
 
       <div class="try-card">
         <div class="tc-head">
           <span class="tc-step">试</span>
-          <span>点按钮体验胶囊效果</span>
+          <span>点按钮体验胶囊效果（演示，不走真实 API）</span>
         </div>
         <pre class="tc-sample" id="tc-sample"></pre>
         <div class="tc-actions">
           <button type="button" class="btn primary big" id="tc-trigger">立即试精简 · 弹胶囊 →</button>
         </div>
-        <div class="tc-note">
-          <strong>演示模式</strong>：预制精简结果，不走真实 API。正式用时再去下一步配 Key。
+      </div>
+
+      <details class="api-advanced" style="margin-top:12px">
+        <summary>高级 · 自定义全局快捷键（可选）</summary>
+        <p class="api-builtin-note" style="margin:8px 0">默认走剪贴板双击 ⌘C，一般不用开权限。若要 ⌥⌘R 等组合键，需开「输入监控」。</p>
+        <div class="perm-wizard" id="perm-wizard" style="margin-top:8px">
+          <div class="perm-actions">
+            <button type="button" class="btn ghost" id="perm-open">开输入监控权限</button>
+            <button type="button" class="btn ghost" id="perm-check">检测授权</button>
+          </div>
+          <div class="perm-status wait" id="perm-status">未检测</div>
         </div>
-      </div>`;
+        <div class="hk-card" style="margin-top:8px">
+          <div class="hk-presets">
+            <button type="button" class="hk-preset" data-hk="${ALT_HOTKEY}">⌥⌘R</button>
+          </div>
+          <div class="hk-status ok" id="hk-status"></div>
+        </div>
+      </details>`;
 
     // 渲染示例文字
     try {
@@ -453,13 +447,12 @@
 
     await setupHotkeyPrimary();
     setupPermissionWizard();
-    await ensureDefaultHotkey();
     setupHotkeyPresets();
     setupTryDemo();
 
     clearActions();
     actionsEl.appendChild(btn("← 上一步", "ghost", goBack));
-    actionsEl.appendChild(btn("继续 → AI 能力", "primary", goNext));
+    actionsEl.appendChild(btn("继续 → 选文档", "primary", goNext));
   }
 
   function showHotkey(shortcut) {
@@ -947,10 +940,8 @@
    * ============================================================ */
   function renderPick() {
     stage.innerHTML = `
-      <h2 class="title">最后一步：精简后归档到哪？</h2>
-      <p class="lead">选一个默认 .md —— 精简满意后点「归档」，内容会追加到这里。
-        <strong>它所在的文件夹</strong>就是你的知识库，Agent 加进来就能基于 .md 提问。<br />
-        <span class="pick-tail-tip">点「开始体验」后会自动打开 Skillless 后台。</span></p>
+      <h2 class="title">选默认归档文档</h2>
+      <p class="lead">精简满意后点「归档+复制」，内容追加到这个 .md。同目录就是你的知识库。</p>
 
       <div class="pick-zone">
         <button type="button" class="pick-primary" id="pick-existing">
@@ -1076,7 +1067,6 @@
     refine: renderRefine,
     how: renderHow,
     hotkey: renderHotkey,
-    api: renderApi,
     pick: renderPick,
     kb: renderKb,
   };
@@ -1089,10 +1079,10 @@
     const filled = !!summary.default_md;
 
     stage.innerHTML = `
-      <h2 class="title">越用越懂你：AI 会读你的笔记</h2>
+      <h2 class="title">③ 知识库视角补充</h2>
       <p class="lead">
-        每次精简，AI 都会顺手扫一下你这个 .md，<strong>主动提示重复、补出遗漏的相关知识</strong>——
-        像一个懂你工作习惯的同事帮你整理。先看个三列对比 👇
+        首次双击 ⌘C 约 <strong>3 秒</strong>出精简。需要 AI 读笔记补关联？
+        胶囊里打开 <strong>「📚 笔记 ON」</strong> → 点 <strong>「↻ 重算」</strong>，会基于知识库加「视角补充」段（标重复、补遗漏）。
       </p>
 
       <div class="kb-demo">
@@ -1162,8 +1152,8 @@
         <div class="kb-row"><span class="kb-k">知识库目录</span><span class="kb-v">${kbLabel}</span></div>
         <div class="kb-hint">
           ${filled
-            ? `<strong>胶囊右下角会出现「已参考你的笔记」</strong>的小提示，看到它就说明 AI 读了上下文。`
-            : `还没设默认 .md？点「上一步」回到第 6 步选一个。`}
+            ? `默认文档已设好。精简后点「↻ 重算」才会读笔记做视角补充；归档只写精简正文。`
+            : `还没设默认 .md？点「上一步」选一个。`}
           <br/>胶囊里点 <strong>⚙ 或 ›</strong>，菜单栏点 <strong>📥 → 打开后台</strong>，可随时切换、看历史。
         </div>
       </div>
@@ -1171,9 +1161,9 @@
       <div class="kb-tips">
         <h4>用得越多越懂你的小习惯</h4>
         <ul>
-          <li><strong>同一类内容写在同一个 .md</strong>：会议纪要 / 灵感 / 学习笔记分开放，AI 旁白更准。</li>
-          <li><strong>顶部写一段「这是什么文档」</strong>：AI 读到后自动按场景调整输出。</li>
-          <li><strong>不用强求完整</strong>：旁白只在确实有重复或可补时才出现，干净不啰嗦。</li>
+          <li><strong>要快</strong>：保持「📚 笔记 OFF」，双击 ⌘C 即可。</li>
+          <li><strong>要准</strong>：笔记 ON + 重算，AI 从 .md 检索相关段落再补充。</li>
+          <li><strong>视角补充不进归档</strong>：只归档精简正文，补充仅供当下参考。</li>
         </ul>
       </div>`;
 

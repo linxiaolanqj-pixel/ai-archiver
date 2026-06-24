@@ -649,8 +649,8 @@ def api_key_status() -> dict[str, Any]:
         "has_key": ok,
         "masked": masked,
         "source": source,
-        "platform_provided": platform.startswith("sk-") and not user.startswith("sk-"),
-        "free_tier": platform.startswith("sk-"),
+        "platform_provided": platform.startswith("sk-"),
+        "free_tier": platform.startswith("sk-") or ok,
     }
 
 

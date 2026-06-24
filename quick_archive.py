@@ -150,6 +150,7 @@ def _call_deepseek_stream(
     *,
     timeout: int = 45,
     max_tokens: int = 800,
+    temperature: float = 0.4,
     first_chunk_timeout: int = 15,
     idle_chunk_timeout: int = 25,
 ):
@@ -180,7 +181,7 @@ def _call_deepseek_stream(
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        "temperature": 0.4,
+        "temperature": temperature,
         "stream": True,
         "max_tokens": max_tokens,
         # v0.4.14：要求 DeepSeek 在最后一帧返回 usage（含 prompt_cache_hit_tokens
