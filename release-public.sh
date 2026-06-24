@@ -33,7 +33,8 @@ cp -R "$APP" "$STAGE/"
 [ -f README.md ]    && cp README.md    "$STAGE/README.md"
 [ -f CHANGELOG.md ] && cp CHANGELOG.md "$STAGE/CHANGELOG.md"
 
-( cd "$STAGE" && ditto -c -k --sequesterRsrc --keepParent . "$DIR/$PUB_ZIP" )
+# 同 release.sh：不用 --keepParent，zip 顶层直接是 Skillless.app
+( cd "$STAGE" && ditto -c -k --sequesterRsrc . "$DIR/$PUB_ZIP" )
 ( cd dist && ln -sf "Skillless-public-v${NEW_VERSION}.zip" "Skillless-mac-public.zip" ) 2>/dev/null || true
 
 echo
